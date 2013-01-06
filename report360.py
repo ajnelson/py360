@@ -16,7 +16,12 @@ class Report360:
         self.image_directory = image_directory
         self.outfd = out
         self.errfd = err
+        self.xmlfd = None
     
+    def init_dfxml(self, use_xml):
+        if use_xml:
+            self.xmlfd = open("py360out.dfxml", "w")
+
     def output(self, string, fd = None):
 
         if fd == None:
@@ -43,10 +48,16 @@ class Report360:
         if acc.passcode:
             self.output("Passcode: %s" % acc.passcode)
         
+    def xprint(self, outstring):
+        """ Prints out DFXML """
+        if self.xmlfd:
+            self.xmlfd.write(outstring)
+            self.xmlfd.write("\n")
 
     def print_xtaf(self, part):
         """ Prints out information about an XTAF partition """
         self.output("\n*********************")
+        self.xprint("""  <volume offset="TODO">""")
         self.output(part)
         self.output("*********************")
         self.output("\nFILE LISTING")
@@ -58,6 +69,7 @@ class Report360:
                 self.output("%s\t%s\t%s\n" % (time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate))))
+        self.xprint("""  </volume>""")
                                             
     def print_stfs(self, stf):
         """ Prints out information contained in the provided STFS object """
@@ -221,5 +233,6 @@ if __name__ == '__main__':
         reporter = Report360(args.xtaf_image, args.file_output_path)
     else:
         reporter = Report360(args.xtaf_image)
+    reporter.init_dfxml(args.xml)
 
     reporter.document_image()
