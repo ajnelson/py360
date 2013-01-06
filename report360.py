@@ -210,13 +210,16 @@ class Report360:
                         
             
 if __name__ == '__main__':
-    if len(sys.argv) < 2:
-        print "Usage: report360.py XFATIMAGE.bin [path to write images to]"
-        sys.exit(1)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("xtaf_image", metavar="XTAFIMAGE.bin")
+    parser.add_argument("file_output_path", metavar="[path to write images to]")
+    parser.add_argument("-x", "--xml", help="Output DFXML", action="store_true")
+    args = parser.parse_args()
 
-    if len(sys.argv) == 2:
-        reporter = Report360(sys.argv[1])
+    if args.file_output_path:
+        reporter = Report360(args.xtaf_image, args.file_output_path)
     else:
-        reporter = Report360(sys.argv[1], sys.argv[2])
+        reporter = Report360(args.xtaf_image)
 
     reporter.document_image()
