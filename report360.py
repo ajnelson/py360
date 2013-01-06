@@ -58,11 +58,49 @@ class Report360:
         """ Prints out information about an XTAF partition """
         self.output("\n*********************")
         self.xprint("""  <volume offset="TODO">""")
+        TODO = """
+    <partition_offset>16384</partition_offset>
+    <block_size>4096</block_size>
+    <ftype>256</ftype>
+    <ftype_str>ext3</ftype_str>
+    <block_count>235516</block_count>
+    <first_block>0</first_block>
+    <last_block>235515</last_block>
+"""
         self.output(part)
         self.output("*********************")
         self.output("\nFILE LISTING")
         #for filename in part.allfiles:
         for filename in part.walk():
+            TODO = """
+    <fileobject>
+      <parent_object>
+        <inode>2</inode>
+      </parent_object>
+      <filename>.</filename>
+      <partition>1</partition>
+      <id>1</id>
+      <name_type>d</name_type>
+      <filesize>4096</filesize>
+      <alloc>1</alloc>
+      <used>1</used>
+      <inode>2</inode>
+      <meta_type>2</meta_type>
+      <mode>493</mode>
+      <nlink>18</nlink>
+      <uid>0</uid>
+      <gid>0</gid>
+      <mtime>2003-08-10T22:54:04Z</mtime>
+      <ctime>2003-08-10T22:54:04Z</ctime>
+      <atime>2003-08-10T22:56:11Z</atime>
+      <libmagic>data </libmagic>
+      <byte_runs>
+       <byte_run file_offset='0' fs_offset='1900544' img_offset='1916928' len='4096'/>
+      </byte_runs>
+      <hashdigest type='md5'>95b1da7257ad7bc44a19757d8980b49e</hashdigest>
+      <hashdigest type='sha1'>3ccde64a5035f839ee508d5309f5c49b6a384411</hashdigest>
+    </fileobject>
+"""
             fi = part.get_file(filename)
             if fi.fr:
                 self.output("File: %s\t%d" % (filename, fi.fr.fsize))
@@ -163,6 +201,39 @@ class Report360:
         if self.filename == None:
             return
 
+        TODO = """
+<?xml version='1.0' encoding='UTF-8'?>
+<dfxml version='1.0'>
+  <metadata 
+  xmlns='http://www.forensicswiki.org/wiki/Category:Digital_Forensics_XML'
+  xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' 
+  xmlns:dc='http://purl.org/dc/elements/1.1/'>
+    <dc:type>Disk Image</dc:type>
+  </metadata>
+  <creator version='1.0'>
+    <program>FIWALK</program>
+    <version>0.6.18</version>
+    <build_environment>
+      <compiler>GCC 4.2</compiler>
+      <library name="afflib" version="3.7.1"/>
+      <library name="libewf" version="20120504"/>
+    </build_environment>
+    <execution_environment>
+      <os_sysname>Darwin</os_sysname>
+      <os_release>11.4.0</os_release>
+      <os_version>Darwin Kernel Version 11.4.0: Mon Apr  9 19:32:15 PDT 2012; root:xnu-1699.26.8~1/RELEASE_X86_64</os_version>
+      <host>paws.local</host>
+      <arch>x86_64</arch>
+      <command_line>fiwalk -X/Users/alex/Documents/School/UCSC/SSRC/svn/forensics/src/geoproc.git/results-test/Users/alex/corpus/available/honeynet-scan29.aff/make_fiwalk_dfxml.sh/fiout.xml -f /Users/alex/corpus/available/honeynet-scan29.aff -G0</command_line>
+      <start_time>2012-09-03T01:09:15Z</start_time>
+    </execution_environment>
+  </creator>
+  <source>
+    <image_filename>/Users/alex/corpus/available/honeynet-scan29.aff</image_filename>
+  </source>
+  <pagesize>16777216</pagesize>
+  <sectorsize>512</sectorsize>
+"""
         self.output("Opening %s" % self.filename, self.errfd)
         x = partition.Partition(self.filename)
         self.print_xtaf(x)
@@ -219,6 +290,20 @@ class Report360:
             except (IOError, OverflowError, AssertionError) as e: # STFS Error
                 self.output("STFS Error: %s %s %s" % (filename, type(e), e), self.errfd)
                 continue
+        TODO = """
+  <runstats>
+    <user_seconds>11</user_seconds>
+    <system_seconds>50</system_seconds>
+    <maxrss>468721664</maxrss>
+    <reclaims>152933</reclaims>
+    <faults>2</faults>
+    <swaps>0</swaps>
+    <inputs>0</inputs>
+    <outputs>229</outputs>
+    <stop_time>Sun Sep  2 18:15:49 2012</stop_time>
+  </runstats>
+</dfxml>
+"""
                         
             
 if __name__ == '__main__':
