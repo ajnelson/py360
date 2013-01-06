@@ -213,7 +213,7 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("xtaf_image", metavar="XTAFIMAGE.bin")
-    parser.add_argument("file_output_path", metavar="[path to write images to]")
+    parser.add_argument("file_output_path", metavar="[path to write images to]", default=None, nargs="?")
     parser.add_argument("-x", "--xml", help="Output DFXML", action="store_true")
     args = parser.parse_args()
 
