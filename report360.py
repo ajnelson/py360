@@ -5,6 +5,8 @@ This is a quick conversion from the previous solution of a few functions.
 This version allows function reuse and swaps prints with a call to Report360.output to allow preprocessing
 """
 
+__version__ = "0.1.0"
+
 import time, os, sys
 from py360 import xdbf, partition, account, stfs, xboxmagic, xboxtime
 from cStringIO import StringIO
@@ -49,7 +51,7 @@ class Report360:
             self.output("Passcode: %s" % acc.passcode)
         
     def xprint(self, outstring):
-        """ Prints out DFXML """
+        """ Prints out DFXML if the XML file descriptor is live """
         if self.xmlfd:
             self.xmlfd.write(outstring)
             self.xmlfd.write("\n")
@@ -57,56 +59,61 @@ class Report360:
     def print_xtaf(self, part):
         """ Prints out information about an XTAF partition """
         self.output("\n*********************")
-        self.xprint("""  <volume offset="TODO">""")
-        TODO = """
-    <partition_offset>16384</partition_offset>
-    <block_size>4096</block_size>
-    <ftype>256</ftype>
-    <ftype_str>ext3</ftype_str>
-    <block_count>235516</block_count>
-    <first_block>0</first_block>
-    <last_block>235515</last_block>
-"""
+        self.xprint("""  <volume offset="%s">""" % str(part.start))
+        self.xprint("  <partition_offset>%s</partition_offset>" % str(part.start))
+        self.xprint("  <block_size>512</block_size>")
+#TODO
+#    <ftype>256</ftype>
+        self.xprint("  <ftype_str>xtaf</ftype_str>")
+#    <block_count>235516</block_count>
+#    <first_block>0</first_block>
+#    <last_block>235515</last_block>
+
         self.output(part)
         self.output("*********************")
         self.output("\nFILE LISTING")
         #for filename in part.allfiles:
         for filename in part.walk():
-            TODO = """
-    <fileobject>
-      <parent_object>
-        <inode>2</inode>
-      </parent_object>
-      <filename>.</filename>
-      <partition>1</partition>
-      <id>1</id>
-      <name_type>d</name_type>
-      <filesize>4096</filesize>
-      <alloc>1</alloc>
-      <used>1</used>
-      <inode>2</inode>
-      <meta_type>2</meta_type>
-      <mode>493</mode>
-      <nlink>18</nlink>
-      <uid>0</uid>
-      <gid>0</gid>
-      <mtime>2003-08-10T22:54:04Z</mtime>
-      <ctime>2003-08-10T22:54:04Z</ctime>
-      <atime>2003-08-10T22:56:11Z</atime>
-      <libmagic>data </libmagic>
-      <byte_runs>
-       <byte_run file_offset='0' fs_offset='1900544' img_offset='1916928' len='4096'/>
-      </byte_runs>
-      <hashdigest type='md5'>95b1da7257ad7bc44a19757d8980b49e</hashdigest>
-      <hashdigest type='sha1'>3ccde64a5035f839ee508d5309f5c49b6a384411</hashdigest>
-    </fileobject>
-"""
             fi = part.get_file(filename)
+            self.xprint("    <fileobject>")
+#TODO
+#      <parent_object>
+#        <inode>2</inode>
+#      </parent_object>
+            self.xprint("      <filename>%s</filename>" % (filename))
+#      <partition>1</partition>
+#      <id>1</id>
+            name_type = "-" #TODO This appears in some Fiwalk output for unallocated files
+            if fi.isDirectory():
+                name_type = "d"
+            else:
+                name_type = "r"
+            self.xprint("      <name_type>d</name_type>")
             if fi.fr:
+#TODO
+#      <filesize>4096</filesize>
+#      <alloc>1</alloc>
+#      <used>1</used>
+#      <inode>2</inode>
+#      <meta_type>2</meta_type>
+#      <mode>493</mode>
+#      <nlink>18</nlink>
+#      <uid>0</uid>
+#      <gid>0</gid>
+#      <mtime>2003-08-10T22:54:04Z</mtime>
+#      <ctime>2003-08-10T22:54:04Z</ctime>
+#      <atime>2003-08-10T22:56:11Z</atime>
+#      <libmagic>data </libmagic>
+#      <byte_runs>
+#       <byte_run file_offset='0' fs_offset='1900544' img_offset='1916928' len='4096'/>
+#      </byte_runs>
+#      <hashdigest type='md5'>95b1da7257ad7bc44a19757d8980b49e</hashdigest>
+#      <hashdigest type='sha1'>3ccde64a5035f839ee508d5309f5c49b6a384411</hashdigest>
                 self.output("File: %s\t%d" % (filename, fi.fr.fsize))
                 self.output("%s\t%s\t%s\n" % (time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate))))
+            self.xprint("    </fileobject>")
         self.xprint("""  </volume>""")
                                             
     def print_stfs(self, stf):
@@ -201,8 +208,7 @@ class Report360:
         if self.filename == None:
             return
 
-        TODO = """
-<?xml version='1.0' encoding='UTF-8'?>
+        self.xprint("""<?xml version='1.0' encoding='UTF-8'?>
 <dfxml version='1.0'>
   <metadata 
   xmlns='http://www.forensicswiki.org/wiki/Category:Digital_Forensics_XML'
@@ -211,8 +217,10 @@ class Report360:
     <dc:type>Disk Image</dc:type>
   </metadata>
   <creator version='1.0'>
-    <program>FIWALK</program>
-    <version>0.6.18</version>
+    <program>py360</program>
+    <version>""" + __version__ + """</version>""")
+
+        TODO = """
     <build_environment>
       <compiler>GCC 4.2</compiler>
       <library name="afflib" version="3.7.1"/>
@@ -226,14 +234,15 @@ class Report360:
       <arch>x86_64</arch>
       <command_line>fiwalk -X/Users/alex/Documents/School/UCSC/SSRC/svn/forensics/src/geoproc.git/results-test/Users/alex/corpus/available/honeynet-scan29.aff/make_fiwalk_dfxml.sh/fiout.xml -f /Users/alex/corpus/available/honeynet-scan29.aff -G0</command_line>
       <start_time>2012-09-03T01:09:15Z</start_time>
-    </execution_environment>
-  </creator>
+    </execution_environment>"""
+
+        self.xprint("""  </creator>
   <source>
-    <image_filename>/Users/alex/corpus/available/honeynet-scan29.aff</image_filename>
-  </source>
-  <pagesize>16777216</pagesize>
-  <sectorsize>512</sectorsize>
-"""
+    <image_filename>""" + self.filename + """</image_filename>
+  </source>""")
+        TODO = """  <pagesize>16777216</pagesize>"""
+        self.xprint("  <sectorsize>512</sectorsize>")
+
         self.output("Opening %s" % self.filename, self.errfd)
         x = partition.Partition(self.filename)
         self.print_xtaf(x)
@@ -302,15 +311,15 @@ class Report360:
     <outputs>229</outputs>
     <stop_time>Sun Sep  2 18:15:49 2012</stop_time>
   </runstats>
-</dfxml>
 """
-                        
-            
+        self.xprint("</dfxml>")
+ 
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("xtaf_image", metavar="XTAFIMAGE.bin")
     parser.add_argument("file_output_path", metavar="[path to write images to]", default=None, nargs="?")
+    #TODO Implement -X flag like Fiwalk
     parser.add_argument("-x", "--xml", help="Output DFXML", action="store_true")
     args = parser.parse_args()
 
