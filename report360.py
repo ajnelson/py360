@@ -91,24 +91,31 @@ class Report360:
             self.xprint("      <name_type>d</name_type>")
             if fi.fr:
 #TODO
-#      <filesize>4096</filesize>
-#      <alloc>1</alloc>
-#      <used>1</used>
-#      <inode>2</inode>
-#      <meta_type>2</meta_type>
-#      <mode>493</mode>
-#      <nlink>18</nlink>
-#      <uid>0</uid>
-#      <gid>0</gid>
-#      <mtime>2003-08-10T22:54:04Z</mtime>
-#      <ctime>2003-08-10T22:54:04Z</ctime>
-#      <atime>2003-08-10T22:56:11Z</atime>
-#      <libmagic>data </libmagic>
-#      <byte_runs>
-#       <byte_run file_offset='0' fs_offset='1900544' img_offset='1916928' len='4096'/>
-#      </byte_runs>
-#      <hashdigest type='md5'>95b1da7257ad7bc44a19757d8980b49e</hashdigest>
-#      <hashdigest type='sha1'>3ccde64a5035f839ee508d5309f5c49b6a384411</hashdigest>
+                self.xprint("      <filesize>%d</filesize>" % fi.fr.fsize)
+#self.xprint("      <alloc>1</alloc>")
+#self.xprint("      <unalloc>1</unalloc>")
+#self.xprint("      <used>1</used>")
+#self.xprint("      <inode>2</inode>")
+#self.xprint("      <meta_type>2</meta_type>")
+#self.xprint("      <nlink>18</nlink>")
+#self.xprint("      <uid>0</uid>")
+#self.xprint("      <gid>0</gid>")
+                self.xprint("      <mtime>%s</mtime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)))
+                self.xprint("      <ctime>%s</ctime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate)))
+                self.xprint("      <atime>%s</atime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)))
+#self.xprint("      <libmagic>data </libmagic>")
+                if fi.clusters:
+                    self.xprint("      <byte_runs>")
+                    cluster_file_offset = 0
+                    for cluster in fi.clusters:
+                        cluster_fs_offset = -1
+                        cluster_img_offset = -1
+                        cluster_length = 512
+                        self.xprint("        <byte_run file_offset='%d' fs_offset='%d' img_offset='%d' len='%d'/>" % (cluster_file_offset, cluster_fs_offset, cluster_img_offset, cluster_length))
+                        cluster_file_offset += 512
+                    self.xprint("      </byte_runs>")
+#self.xprint("      <hashdigest type='md5'>95b1da7257ad7bc44a19757d8980b49e</hashdigest>")
+#self.xprint("      <hashdigest type='sha1'>3ccde64a5035f839ee508d5309f5c49b6a384411</hashdigest>")
                 self.output("File: %s\t%d" % (filename, fi.fr.fsize))
                 self.output("%s\t%s\t%s\n" % (time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)),\
