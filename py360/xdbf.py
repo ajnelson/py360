@@ -98,7 +98,10 @@ class Title(object):
         if self.name:
             return unicode(self.name, 'utf-16-be')
         else:
-            return u''
+            if sys.version_info < (2,8):
+                return unicode('')
+            else:
+                return ""
 
 class Achievement(object):
     """ Achievement entry object
@@ -141,21 +144,30 @@ class Achievement(object):
         if self.name:
             return unicode(self.name, 'utf-16-be')
         else:
-            return u''
+            if sys.version_info < (2,8):
+                return unicode('')
+            else:
+                return ""
 
     def get_locked_desc(self):
         """ Convert the locked description from utf-16-be data in a raw string to a unicode object """
         if self.locked_desc:
             return unicode(self.locked_desc, 'utf-16-be')
         else:
-            return u''
+            if sys.version_info < (2,8):
+                return unicode('')
+            else:
+                return ""
 
     def get_unlocked_desc(self):
         """ Convert the unlocked description from utf-16-be data in a raw string to a unicode object """
         if self.unlocked_desc:
             return unicode(self.unlocked_desc, 'utf-16-be')
         else:
-            return u''
+            if sys.version_info < (2,8):
+                return unicode('')
+            else:
+                return ""
 
 class Entry(object):
     """ Entry object which describes where to find the data inside the file and its payload type 
