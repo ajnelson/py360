@@ -225,14 +225,13 @@ class Report360:
   </metadata>
   <creator version='1.0'>
     <program>py360</program>
-    <version>""" + __version__ + """</version>""")
+    <version>""" + __version__ + """</version>
+    <build_environment>
+      <compiler>python v""" + sys.version.split(" ")[0] + """</compiler>
+    </build_environment>
+""")
 
         TODO = """
-    <build_environment>
-      <compiler>GCC 4.2</compiler>
-      <library name="afflib" version="3.7.1"/>
-      <library name="libewf" version="20120504"/>
-    </build_environment>
     <execution_environment>
       <os_sysname>Darwin</os_sysname>
       <os_release>11.4.0</os_release>
