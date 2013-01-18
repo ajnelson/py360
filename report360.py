@@ -11,6 +11,8 @@ import time, os, sys
 from py360 import xdbf, partition, account, stfs, xboxmagic, xboxtime
 from cStringIO import StringIO
 
+FILE_ID_COUNTER = 0
+
 class Report360:
     """ A class to output information about py360 types """
     def __init__(self, filename = None, image_directory = None, out = sys.stdout, err = sys.stderr):
@@ -58,16 +60,18 @@ class Report360:
 
     def print_xtaf(self, part):
         """ Prints out information about an XTAF partition """
+        global FILE_ID_COUNTER
+
         self.output("\n*********************")
         self.xprint("""  <volume offset="%s">""" % str(part.start))
-        self.xprint("  <partition_offset>%s</partition_offset>" % str(part.start))
-        self.xprint("  <block_size>512</block_size>")
+        self.xprint("    <partition_offset>%s</partition_offset>" % str(part.start))
+        self.xprint("    <block_size>512</block_size>")
 #TODO
-#    <ftype>256</ftype>
-        self.xprint("  <ftype_str>xtaf</ftype_str>")
-#    <block_count>235516</block_count>
-#    <first_block>0</first_block>
-#    <last_block>235515</last_block>
+#      <ftype>256</ftype>
+        self.xprint("    <ftype_str>xtaf</ftype_str>")
+#      <block_count>235516</block_count>
+#      <first_block>0</first_block>
+#      <last_block>235515</last_block>
 
         self.output(part)
         self.output("*********************")
@@ -82,7 +86,8 @@ class Report360:
 #      </parent_object>
             self.xprint("      <filename>%s</filename>" % (filename))
 #      <partition>1</partition>
-#      <id>1</id>
+            self.xprint("      <id>%d</id>" % FILE_ID_COUNTER)
+            FILE_ID_COUNTER += 1
             name_type = "-" #TODO This appears in some Fiwalk output for unallocated files
             if fi.isDirectory():
                 name_type = "d"
@@ -90,16 +95,16 @@ class Report360:
                 name_type = "r"
             self.xprint("      <name_type>d</name_type>")
             if fi.fr:
-#TODO
                 self.xprint("      <filesize>%d</filesize>" % fi.fr.fsize)
+#TODO
 #self.xprint("      <alloc>1</alloc>")
 #self.xprint("      <unalloc>1</unalloc>")
 #self.xprint("      <used>1</used>")
 #self.xprint("      <inode>2</inode>")
 #self.xprint("      <meta_type>2</meta_type>")
 #self.xprint("      <nlink>18</nlink>")
-#self.xprint("      <uid>0</uid>")
-#self.xprint("      <gid>0</gid>")
+                self.xprint("      <uid>0</uid>") #XTAF doesn't really have a user id
+                self.xprint("      <gid>0</gid>") #XTAF doesn't really have a group id
                 self.xprint("      <mtime>%s</mtime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)))
                 self.xprint("      <ctime>%s</ctime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate)))
                 self.xprint("      <atime>%s</atime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)))
@@ -229,20 +234,19 @@ class Report360:
     <build_environment>
       <compiler>python v""" + sys.version.split(" ")[0] + """</compiler>
     </build_environment>
-""")
+    <execution_environment>""")
 
         TODO = """
-    <execution_environment>
       <os_sysname>Darwin</os_sysname>
       <os_release>11.4.0</os_release>
       <os_version>Darwin Kernel Version 11.4.0: Mon Apr  9 19:32:15 PDT 2012; root:xnu-1699.26.8~1/RELEASE_X86_64</os_version>
       <host>paws.local</host>
       <arch>x86_64</arch>
       <command_line>fiwalk -X/Users/alex/Documents/School/UCSC/SSRC/svn/forensics/src/geoproc.git/results-test/Users/alex/corpus/available/honeynet-scan29.aff/make_fiwalk_dfxml.sh/fiout.xml -f /Users/alex/corpus/available/honeynet-scan29.aff -G0</command_line>
-      <start_time>2012-09-03T01:09:15Z</start_time>
-    </execution_environment>"""
+      <start_time>2012-09-03T01:09:15Z</start_time>"""
 
-        self.xprint("""  </creator>
+        self.xprint("""    </execution_environment>
+  </creator>
   <source>
     <image_filename>""" + self.filename + """</image_filename>
   </source>""")
