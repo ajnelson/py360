@@ -174,7 +174,7 @@ class Partition(object):
         if len(fileobj.clusters) == 0: # Initialise cluster list if necessary
             fileobj.clusters = self.get_clusters(fileobj.fr)
             if len(fileobj.clusters) == 0: # Check the return of get_clusters
-                print "Reading Empty File"
+                print("Reading Empty File")
                 return ""
 
         clusters_to_skip = offset // 0x4000
@@ -192,13 +192,13 @@ class Partition(object):
                 size -= readlen
             return buf.getvalue()
         except IndexError:
-            print "Read overflow?", len(fileobj.clusters), clusters_to_skip
+            print("Read overflow?", len(fileobj.clusters), clusters_to_skip)
             return buf.getvalue()
 
     def get_clusters(self, fr):
         """ Builds a list of the clusters a file hash by parsing the FAT """
         if fr.cluster == 0:
-            print "Empty file"
+            print("Empty file")
             return []
         clusters = [fr.cluster]
         cl = 0x0
@@ -213,8 +213,8 @@ class Partition(object):
                     clusters.append(cl)
             else:
                 if fr.filename[0] != '~':
-                    print "get_clusters fat offset warning %s %x vs %x, %x" %\
-                          (fr.filename, cl_off, len(self.fat_data), len(cldata))
+                    sys.stderr.write("get_clusters fat offset warning %s %x vs %x, %x\n" %\
+                          (fr.filename, cl_off, len(self.fat_data), len(cldata)))
                 cl = 0xFFFFFFF
         return clusters
 
@@ -314,7 +314,7 @@ class Partition(object):
         file_components = filename[1:].split("/") # Skip first slash
         currentfile = self.rootfile
         for component in file_components:
-            #print "f:%s\t c:%s\t" % (filename, component),  currentfile, self.rootfile
+            #print("f:%s\t c:%s\t" % (filename, component),  currentfile, self.rootfile)
             if currentfile == None:
                 break
             # If this is a directory (that isn't root) and it has no clusters listed, try to initialise it
@@ -326,7 +326,7 @@ class Partition(object):
                 currentfile = None
 
         if currentfile != None and currentfile.isDirectory():
-            print "Initialising: %s" % filename
+            print("Initialising: %s" % filename)
             currentfile = self.parse_directory(currentfile) # If we're asked for a directory, initialise it before returning
 
         return currentfile

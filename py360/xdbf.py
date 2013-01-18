@@ -264,9 +264,9 @@ class XDBF(object):
 
 def print_xdbf(argv):
     if len(argv) < 2:
-        print "USAGE: xdbf.py options [file.gpd] <file2.gpd> ... <filen.gpd>"
-        print "Options:"
-        print "\t\t-p [directory]\t dump images to directory as filename-ID.png"
+        print("USAGE: xdbf.py options [file.gpd] <file2.gpd> ... <filen.gpd>")
+        print("Options:")
+        print("\t\t-p [directory]\t dump images to directory as filename-ID.png")
         return
 
     dump_png = False
@@ -276,30 +276,30 @@ def print_xdbf(argv):
         argv.pop(1)
 
     for fname in argv[1:]:
-        print "Processing %s" % fname
+        print("Processing %s" % fname)
         x = XDBF(fname)
-        print x
+        print(x)
         for e in x.entries:
-            print e
+            print(e)
         for t in x.titles:
-            print x.titles[t]
+            print(x.titles[t])
         for a in x.achievements:
             try:
-                print x.achievements[a]
+                print(x.achievements[a])
             except UnicodeEncodeError:
-                print "Unicode error: Achievement %s" % x.achievements[a].name
+                sys.stderr.write("Unicode error: Achievement %s\n" % x.achievements[a].name)
         for s in x.settings:
-            print x.settings[s]
+            print(x.settings[s])
         for st in x.strings:
             try:
-                print "String 0x%x: %s" % (st, unicode(x.strings[st], 'utf-16-be').strip('\x00'))
+                print("String 0x%x: %s" % (st, unicode(x.strings[st], 'utf-16-be').strip('\x00')))
             except UnicodeEncodeError:
-                print "Unicode error: String %s:" % x.strings[st]
+                sys.stderr.write("Unicode error: String '%s'.\n" % x.strings[st])
         for i in x.images:
-            print "Image 0x%x" % i
+            print("Image 0x%x" % i)
             if dump_png:
                 outfile = "%s/%s-%s.png" % (directory, os.path.basename(fname), hex(i))
-                print "Dumping image to %s" % (outfile)
+                print("Dumping image to %s" % (outfile))
                 open(outfile, 'w').write(x.images[i])
 
 if __name__ == '__main__':

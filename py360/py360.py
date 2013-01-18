@@ -104,7 +104,7 @@ Python FUSE file system for Xbox 360 hard drives (XFAT)
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print "Usage: py360.py [imagefile] [mountpoint] [options]"
+        print("Usage: py360.py [imagefile] [mountpoint] [options]")
         sys.exit(1)
     main()
 

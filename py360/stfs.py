@@ -273,13 +273,13 @@ class STFS(object):
 
 def extract_all(argv):
     if len(argv) < 3:
-        print "Usage: stfs.py <input file> <output directory>"
-        print "Dumps contents of stfs file to disk"
+        print("Usage: stfs.py <input file> <output directory>")
+        print("Dumps contents of stfs file to disk")
         return
     s = STFS(argv[1])
     for filename in s.allfiles: # Loop once creating all the directories
         if s.allfiles[filename].isdirectory:
-            print "Creating directory %s" % filename
+            print("Creating directory %s" % filename)
             dirpath = filename[1:]
             dircomponents = dirpath.split('/')
             for i in xrange(len(dircomponents)):
@@ -289,12 +289,12 @@ def extract_all(argv):
                     pass
     for filename in s.allfiles: # Loop again writing all the files
         if not s.allfiles[filename].isdirectory:
-            print "Writing file %s" % filename
+            print("Writing file %s" % filename)
             try:
                 open("%s/%s" % (argv[2], filename), 'w').write(s.read_file(s.allfiles[filename]))
             except Exception as e:
-                print e
-                print argv[2], filename
+                sys.stderr.write(str(e) + "\n")
+                sys.stderr.write(argv[2] + " " + filename + "\n")
 
 if __name__ == '__main__':
     import sys

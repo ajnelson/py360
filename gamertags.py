@@ -20,7 +20,7 @@ part = partition.Partition(sys.argv[1])
 # Second, find profile STFS containers
 content = part.get_file('/Content')
 if content == None:
-    print "Error getting content directory"
+    sys.stderr.write("Error getting content directory\n")
     sys.exit(1) # Error condition
 
 for directory in content.files:
@@ -39,6 +39,6 @@ for directory in content.files:
                 # The account block is always at /Account in the STFS archive
                 # we'll read it in, decode it and then print out the gamertag
                 acc = account.Account(profile.read_file(profile.allfiles['/Account']))
-                print "Gamertag: %s, Type: %s" % (acc.get_gamertag(), acc.live_type)
+                print("Gamertag: %s, Type: %s" % (acc.get_gamertag(), acc.live_type))
         except (AssertionError, IOError):
-            print "Error reading: %s" % directory # If something breaks we just skip it
+            sys.stderr.write("Error reading: %s\n" % directory) # If something breaks we just skip it

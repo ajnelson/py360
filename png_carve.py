@@ -7,8 +7,8 @@ PNG_HEADER = "\x89PNG\x0D\x0A\x1A\x0A"
 PNG_FOOTER = "\x00\x00\x00\x00IEND\xAE\x42\x60\x82"
 
 if len(sys.argv) < 3:
-    print "Usage: [output_prefix] [file_to_carve] <file_to_carve2...>"
-    print "Carves png files out of a parent file. This is useful if xdbf.py has failed."
+    print("Usage: [output_prefix] [file_to_carve] <file_to_carve2...>")
+    print("Carves png files out of a parent file. This is useful if xdbf.py has failed.")
     sys.exit(1)
 
 for filename in sys.argv[2:]:
