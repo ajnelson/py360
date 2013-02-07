@@ -330,7 +330,7 @@ if __name__ == '__main__':
     parser.add_argument("xtaf_image", metavar="XTAFIMAGE.bin")
     parser.add_argument("file_output_path", metavar="[path to write images to]", default=None, nargs="?")
     #TODO Implement -X flag like Fiwalk
-    parser.add_argument("-x", "--xml", help="Output DFXML", action="store_true")
+    parser.add_argument("-x", "--xml", help="Output DFXML (outputs to py360.dfxml)", action="store_true")
     args = parser.parse_args()
 
     if args.file_output_path:
