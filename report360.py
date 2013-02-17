@@ -65,10 +65,10 @@ class Report360:
         self.output("\n*********************")
         self.xprint("""  <volume offset="%s">""" % str(part.start))
         self.xprint("    <partition_offset>%s</partition_offset>" % str(part.start))
-        self.xprint("    <block_size>512</block_size>")
+#        self.xprint("    <block_size></block_size>") #TODO report cluster size with the sectors-per-cluster value
 #TODO
 #      <ftype>256</ftype>
-        self.xprint("    <ftype_str>xtaf</ftype_str>")
+        self.xprint("    <ftype_str>XTAF</ftype_str>") #TODO Clarify XTAF16 or XTAF32
 #      <block_count>235516</block_count>
 #      <first_block>0</first_block>
 #      <last_block>235515</last_block>
@@ -84,7 +84,7 @@ class Report360:
 #      <parent_object>
 #        <inode>2</inode>
 #      </parent_object>
-            self.xprint("      <filename>%s</filename>" % (filename))
+            self.xprint("      <filename>%s</filename>" % filename[1:]) #DFXML filenames omit the leading "/"
 #      <partition>1</partition>
             self.xprint("      <id>%d</id>" % FILE_ID_COUNTER)
             FILE_ID_COUNTER += 1
@@ -96,15 +96,17 @@ class Report360:
             self.xprint("      <name_type>d</name_type>")
             if fi.fr:
                 self.xprint("      <filesize>%d</filesize>" % fi.fr.fsize)
+                if fi.fr.fnsize == 0xe5:
+                    self.xprint("      <alloc>0</alloc>") #TODO This isn't picking up, everything's called 1
+                else:
+                    self.xprint("      <alloc>1</alloc>")
 #TODO
-#self.xprint("      <alloc>1</alloc>")
-#self.xprint("      <unalloc>1</unalloc>")
 #self.xprint("      <used>1</used>")
 #self.xprint("      <inode>2</inode>")
 #self.xprint("      <meta_type>2</meta_type>")
 #self.xprint("      <nlink>18</nlink>")
-                self.xprint("      <uid>0</uid>") #XTAF doesn't really have a user id
-                self.xprint("      <gid>0</gid>") #XTAF doesn't really have a group id
+#                self.xprint("      <uid>0</uid>") #XTAF doesn't really have a user id
+#                self.xprint("      <gid>0</gid>") #XTAF doesn't really have a group id
                 self.xprint("      <mtime>%s</mtime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)))
                 self.xprint("      <ctime>%s</ctime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate)))
                 self.xprint("      <atime>%s</atime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)))
@@ -307,7 +309,9 @@ class Report360:
                             continue
 
             except (IOError, OverflowError, AssertionError) as e: # STFS Error
-                self.output("STFS Error: %s %s %s" % (filename, type(e), e), self.errfd)
+                stfs_err_string = "STFS Error: %s %s %s" % (filename, type(e), e)
+                self.xprint("  <!--" + stfs_err_string + "-->")
+                self.output(stfs_err_string, self.errfd)
                 continue
         TODO = """
   <runstats>
