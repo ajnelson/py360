@@ -196,7 +196,7 @@ class Partition(object):
             return buf.getvalue()
 
     def get_clusters(self, fr):
-        """ Builds a list of the clusters a file hash by parsing the FAT """
+        """ Builds a list of the clusters a file has by parsing the FAT """
         if fr.cluster == 0:
             print("Empty file")
             return []
