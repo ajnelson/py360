@@ -266,7 +266,7 @@ class Partition(object):
 
             parent=None
             if parentobj:
-                parent = parent.fr
+                parent = parentobj.fr
 
             #if not (fnlen == '\xff' and flags == '\xff') and not fnlen == '\x00':
             if (ord(fnlen) < 43 and ord(fnlen) != 0) or (ord(fnlen) == 0xE5):
