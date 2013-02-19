@@ -61,6 +61,7 @@ class FileRecord(object):
         self.adate = kwargs["adate"]
         self.allocated = kwargs["allocated"]
         self.xmlname = kwargs["xmlname"]
+        self.parent = kwargs.get("parent")
 
     def isDirectory(self):
         if self.fsize == 0:
@@ -228,7 +229,7 @@ class Partition(object):
         else:
             return None
 
-    def parse_file_records(self, data):
+    def parse_file_records(self, data, parentobj=None):
         """
             While not end of file records
             Create a file record object
@@ -263,13 +264,17 @@ class Partition(object):
             update_date = struct.unpack(">H", data[pos+0x3C:pos+0x3C+2])[0]
             update_time = struct.unpack(">H", data[pos+0x3E:pos+0x3E+2])[0]
 
+            parent=None
+            if parentobj:
+                parent = parent.fr
+
             #if not (fnlen == '\xff' and flags == '\xff') and not fnlen == '\x00':
             if (ord(fnlen) < 43 and ord(fnlen) != 0) or (ord(fnlen) == 0xE5):
                 file_records.append(FileRecord(fnsize=fnlen, attribute=flags, filename=name, cluster=cl,\
                                                fsize=size, mtime=update_time, mdate=update_date,\
                                                adate=access_date, atime=access_time,\
                                                cdate=creation_date, ctime=creation_time,\
-                                               allocated=allocated, xmlname=xmlname))
+                                               allocated=allocated, xmlname=xmlname, parent=parent))
             else:
                 pass
 
@@ -353,7 +358,7 @@ class Partition(object):
     def parse_directory(self, directory = None, recurse = False):
         """ Parses a single directory, optionally it can recurse into subdirectories.
             It populates the allfile dict and parses the directories and file records of the directory """
-        dirs_to_process = []
+        dirs_to_process = [] # List of Directory's
         if directory == None:
             return None
         else:
@@ -368,7 +373,7 @@ class Partition(object):
                 directory_data = self.read_file(fileobj = d)
 
             # Parse the file records returned and optionally requeue subdirectories
-            file_records = self.parse_file_records(directory_data)
+            file_records = self.parse_file_records(directory_data, d)
             for fr in file_records:
                 if fr.isDirectory():
                     d.files[fr.filename] = Directory(fr, [])
