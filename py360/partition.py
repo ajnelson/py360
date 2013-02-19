@@ -246,7 +246,7 @@ class Partition(object):
                 xmlname = data[pos+2:pos+2+42].strip("\xff\x00")
                 name = '~' + data[pos+2:pos+2+42].strip("\xff\x00")
             elif ord(fnlen) > 42: # Technically >42 should be an error condition
-                sys.stderr.write("Warning: Encountered a directory entry with filename >42 (%d).\n" % fnlen)
+                sys.stderr.write("Warning: Encountered a directory entry with filename >42 (%d).\n" % ord(fnlen))
                 break
             elif ord(fnlen) == 0: # A vacant entry, maybe the end of the directory?
                 pos += 64
