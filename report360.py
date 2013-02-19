@@ -11,6 +11,8 @@ import time, os, sys
 from py360 import xdbf, partition, account, stfs, xboxmagic, xboxtime
 from cStringIO import StringIO
 
+import dfxml
+
 FILE_ID_COUNTER = 0
 
 class Report360:
@@ -81,9 +83,9 @@ class Report360:
             fi = part.get_file(filename)
             self.xprint("    <fileobject>")
 #TODO
-#      <parent_object>
-#        <inode>2</inode>
-#      </parent_object>
+#self.xprint("      <parent_object>")
+#self.xprint("        <inode>2</inode>")
+#self.xprint("      </parent_object>")
             #Build filename for XML; py360's built-in names use a leading-tilde convention that other tools don't
             if fi.fr:
                 dfxml_fn_parts = [fi.fr.xmlname]
@@ -117,9 +119,9 @@ class Report360:
 #self.xprint("      <nlink>18</nlink>")
 #                self.xprint("      <uid>0</uid>") #XTAF doesn't really have a user id
 #                self.xprint("      <gid>0</gid>") #XTAF doesn't really have a group id
-                self.xprint("      <mtime>%s</mtime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)))
-                self.xprint("      <ctime>%s</ctime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate)))
-                self.xprint("      <atime>%s</atime>" % time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)))
+                self.xprint("      <mtime>%s</mtime>" % dfxml.dftime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)))
+                self.xprint("      <crtime>%s</crtime>" % dfxml.dftime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate)))
+                self.xprint("      <atime>%s</atime>" % dfxml.dftime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)))
 #self.xprint("      <libmagic>data </libmagic>")
                 if fi.clusters:
                     self.xprint("      <byte_runs>")
