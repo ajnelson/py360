@@ -96,10 +96,10 @@ class Report360:
             self.xprint("      <name_type>d</name_type>")
             if fi.fr:
                 self.xprint("      <filesize>%d</filesize>" % fi.fr.fsize)
-                if fi.fr.fnsize == 0xe5:
-                    self.xprint("      <alloc>0</alloc>") #TODO This isn't picking up, everything's called 1
-                else:
+                if fi.fr.allocated:
                     self.xprint("      <alloc>1</alloc>")
+                else:
+                    self.xprint("      <alloc>0</alloc>")
 #TODO
 #self.xprint("      <used>1</used>")
 #self.xprint("      <inode>2</inode>")

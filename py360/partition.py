@@ -59,6 +59,8 @@ class FileRecord(object):
         self.cdate = kwargs["cdate"]
         self.atime = kwargs["atime"]
         self.adate = kwargs["adate"]
+        self.allocated = kwargs["allocated"]
+        self.xmlname = kwargs["xmlname"]
 
     def isDirectory(self):
         if self.fsize == 0:
@@ -212,7 +214,7 @@ class Partition(object):
                 if cl & 0xFFFFFFF != 0xFFFFFFF:
                     clusters.append(cl)
             else:
-                if fr.filename[0] != '~':
+                if fr.allocated:
                     sys.stderr.write("get_clusters fat offset warning %s %x vs %x, %x\n" %\
                           (fr.filename, cl_off, len(self.fat_data), len(cldata)))
                 cl = 0xFFFFFFF
@@ -238,15 +240,20 @@ class Partition(object):
         while pos + 64 < len(data): # FileRecord struct offsets
             fnlen = data[pos]
             flags = data[pos+1]
+            allocated=True
             if ord(fnlen) == 0xE5: # Handle deleted files
+                allocated=False
+                xmlname = data[pos+2:pos+2+42].strip("\xff\x00")
                 name = '~' + data[pos+2:pos+2+42].strip("\xff\x00")
             elif ord(fnlen) > 42: # Technically >42 should be an error condition
+                sys.stderr.write("Warning: Encountered a directory entry with filename >42 (%d).\n" % fnlen)
                 break
             elif ord(fnlen) == 0: # A vacant entry, maybe the end of the directory?
                 pos += 64
                 continue
             else: 
                 name = data[pos+2:pos+2+42].strip("\xff\x00") # Ignoring fnlen is a bit wasteful
+                xmlname = name
             cl = struct.unpack(">I", data[pos+0x2c:pos+0x2c+4])[0]
             size = struct.unpack(">I", data[pos+0x30:pos+0x30+4])[0]
             creation_date = struct.unpack(">H", data[pos+0x34:pos+0x34+2])[0]
@@ -261,7 +268,8 @@ class Partition(object):
                 file_records.append(FileRecord(fnsize=fnlen, attribute=flags, filename=name, cluster=cl,\
                                                fsize=size, mtime=update_time, mdate=update_date,\
                                                adate=access_date, atime=access_time,\
-                                               cdate=creation_date, ctime=creation_time))
+                                               cdate=creation_date, ctime=creation_time,\
+                                               allocated=allocated, xmlname=xmlname))
             else:
                 pass
 
