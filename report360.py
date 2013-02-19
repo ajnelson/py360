@@ -84,7 +84,17 @@ class Report360:
 #      <parent_object>
 #        <inode>2</inode>
 #      </parent_object>
-            self.xprint("      <filename>%s</filename>" % filename[1:]) #DFXML filenames omit the leading "/"
+            #Build filename for XML; py360's built-in names use a leading-tilde convention that other tools don't
+            if fi.fr:
+                dfxml_fn_parts = [fi.fr.xmlname]
+                fr_pointer = fi.fr
+                while fr_pointer.parent is not None:
+                    dfxml_fn_parts.append(fr_pointer.parent.xmlname)
+                    fr_pointer = fr_pointer.parent
+                dfxml_fn_parts.reverse()
+                dfxml_fn = "/".join(dfxml_fn_parts)
+                self.xprint("      <filename>%s</filename>" % dfxml_fn) #DFXML filenames omit the leading "/"
+            self.xprint("      <py360:filename>%s</py360:filename>" % filename[1:]) #DFXML filenames omit the leading "/"
 #      <partition>1</partition>
             self.xprint("      <id>%d</id>" % FILE_ID_COUNTER)
             FILE_ID_COUNTER += 1

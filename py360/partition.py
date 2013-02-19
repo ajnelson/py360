@@ -61,7 +61,7 @@ class FileRecord(object):
         self.adate = kwargs["adate"]
         self.allocated = kwargs["allocated"]
         self.xmlname = kwargs["xmlname"]
-        self.parent = kwargs.get("parent")
+        self.parent = kwargs.get("parent") #Type: Directory
 
     def isDirectory(self):
         if self.fsize == 0:
