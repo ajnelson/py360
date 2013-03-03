@@ -11,6 +11,8 @@ import time, os, sys
 from py360 import xdbf, partition, account, stfs, xboxmagic, xboxtime
 from cStringIO import StringIO
 
+import hashlib
+
 import dfxml
 
 FILE_ID_COUNTER = 0
@@ -126,15 +128,24 @@ class Report360:
                 if fi.clusters:
                     self.xprint("      <byte_runs>")
                     cluster_file_offset = 0
+                    md5obj = hashlib.md5()
+                    sha1obj = hashlib.sha1()
                     for cluster in fi.clusters:
+                        #Build byte runs
                         cluster_fs_offset = -1
                         cluster_img_offset = -1
                         cluster_length = 512
-                        self.xprint("        <byte_run file_offset='%d' fs_offset='%d' img_offset='%d' len='%d'/>" % (cluster_file_offset, cluster_fs_offset, cluster_img_offset, cluster_length))
+                        self.xprint("        <byte_run py360:cluster='%d' file_offset='%d' fs_offset='%d' img_offset='%d' len='%d' />" % (cluster, cluster_file_offset, cluster_fs_offset, cluster_img_offset, cluster_length))
                         cluster_file_offset += 512
+
+                        #While we're looping, start building hashes as well
+                        if cluster != 0:
+                            cluster_data = part.read_cluster(cluster)
+                            md5obj.update(cluster_data)
+                            sha1obj.update(cluster_data)
                     self.xprint("      </byte_runs>")
-#self.xprint("      <hashdigest type='md5'>95b1da7257ad7bc44a19757d8980b49e</hashdigest>")
-#self.xprint("      <hashdigest type='sha1'>3ccde64a5035f839ee508d5309f5c49b6a384411</hashdigest>")
+                    self.xprint("      <hashdigest type='md5'>%s</hashdigest>" % md5obj.hexdigest())
+                    self.xprint("      <hashdigest type='sha1'>%s</hashdigest>" % sha1obj.hexdigest())
                 self.output("File: %s\t%d" % (filename, fi.fr.fsize))
                 self.output("%s\t%s\t%s\n" % (time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)),\
