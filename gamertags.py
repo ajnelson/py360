@@ -15,7 +15,8 @@ from py360 import partition, stfs, account
 import sys
 
 # First, open the xbox 360 image
-part = partition.Partition(sys.argv[1])
+# (0x130EB0000L is the offset of the partition with /Content)
+part = partition.Partition(sys.argv[1], 0x130EB0000L)
 
 # Second, find profile STFS containers
 content = part.get_file('/Content')

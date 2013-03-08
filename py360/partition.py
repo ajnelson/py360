@@ -93,6 +93,12 @@ class Directory(FileObj):
     def isDirectory(self):
         return True
 
+class PartitionEncryptedError(Exception):
+    pass
+
+class PartitionDefinitionError(Exception):
+    pass
+
 class Partition(object):
     """
         Main class representing the partition
@@ -100,25 +106,55 @@ class Partition(object):
         The rootfile member contains a directory object that represents the root directory 
     """
     def __str__(self):
-        return "XTAF Partition: %s" % self.filename
+        return "XTAF Partition: %s, offset %r" % (self.filename, self.image_offset)
 
-    def __init__(self, filename, threadsafe=False, precache=False):
+    def __init__(self, filename, start=0, threadsafe=False, precache=False):
         self.filename = filename
+        self.image_offset = start
         self.threadsafe = threadsafe
         self.SIZE_OF_FAT_ENTRIES = 4
 
         #TODO: Error checking
         fd = open(filename, 'r') # The 'r' is very imporant
+
+        #Determine end of input file
+        fd.seek(0,2)
+        input_end = fd.tell()
+
+        fd.seek(start,0)
         if fd.read(4) != 'XTAF':
-            start = 0x130EB0000L # TODO: Improve this detection mechanism
-        else:
-            start = 0
+            # TODO: Improve this detection mechanism
+            raise PartitionDefinitionError("Partition not found at input offset %r" % start)
+
         fat = start + 0x1000L
-        fd.seek(0, 2)
-        end = fd.tell()
+
+        #Determine length of partition (many require hard-coding)
+        part_sizes = dict()
+        part_sizes[0x80000L]     = 512 * 4194304
+        part_sizes[0x80080000L]  = 512 * 4587520
+        part_sizes[0x10C080000L] = 512 * 422272
+        part_sizes[0x118EB0000L] = 512 * 262144
+        part_sizes[0x120EB0000L] = 512 * 524288
+        if start == 0x130EB0000L:
+            #Data partition: End determined by input file size
+            end = input_end
+        elif start == 0x80080000L:
+            raise PartitionEncryptedError("py360 does not support analyzing the encrypted partition at offset %r." % start)
+        elif start in part_sizes.keys():
+            end = part_sizes[start] + start
+        else:
+            raise PartitionDefinitionError("Previously-unexperienced partition at offset %r; unknown how to proceed.")
+
         rootdir = -(-((end - start) >> 12L) & -0x1000L) + fat #TODO: Understand this better
         size = end - rootdir
         fatsize = size >> 14L
+
+        #sys.stderr.write("Debug: start = %r\n" % start)
+        #sys.stderr.write("Debug: size = %r\n" % size)
+        #sys.stderr.write("Debug: end = %r\n" % end)
+        #sys.stderr.write("Debug: rootdir = %r\n" % rootdir)
+        #sys.stderr.write("Debug: fat = %r\n" % fat)
+        #sys.stderr.write("Debug: fatsize = %r\n" % fatsize)
 
         # This doesn't work because unlike the C version of mmap you can't give it a 64 bit offset
         #fatfd = mmap.mmap(fd.fileno(), fatsize, mmap.PROT_READ, mmap.PROT_READ, offset=fat)

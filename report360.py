@@ -279,12 +279,21 @@ class Report360:
         self.xprint("  <sectorsize>512</sectorsize>")
 
         self.output("Opening %s" % self.filename, self.errfd)
-        x = partition.Partition(self.filename)
-        self.print_xtaf(x)
+        #Loop through all known partitions
+        for part_offset in [
+          0x80000L,
+          #0x80080000L, #Encrypted partition
+          0x10C080000L,
+          0x118EB0000L,
+          0x120EB0000L,
+          0x130EB0000L
+        ]:
+          x = partition.Partition(self.filename, part_offset)
+          self.print_xtaf(x)
 
-        # Find STFS files
-        self.output("Processing all files", self.errfd)
-        for filename in x.allfiles:
+          # Find STFS files
+          self.output("Processing all files", self.errfd)
+          for filename in x.allfiles:
             try:
                 if xboxmagic.find_type(data = x.read_file(filename, size=0x10)) == "STFS":
                     self.output("Processing STFS file %s" % filename, self.errfd)
