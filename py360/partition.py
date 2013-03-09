@@ -64,7 +64,7 @@ class FileRecord(object):
         self.parent = kwargs.get("parent") #Type: Directory
 
     def isDirectory(self):
-        if self.fsize == 0:
+        if self.attribute & 16: #AJN TODO FIXME
             return True
         return False
 
@@ -276,7 +276,7 @@ class Partition(object):
         pos = 0
         while pos + 64 < len(data): # FileRecord struct offsets
             fnlen = data[pos]
-            flags = data[pos+1]
+            flags = struct.unpack(">b", data[pos+1])[0]
             allocated=True
             if ord(fnlen) == 0xE5: # Handle deleted files
                 allocated=False
