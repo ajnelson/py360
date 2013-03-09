@@ -64,7 +64,7 @@ class FileRecord(object):
         self.parent = kwargs.get("parent") #Type: Directory
 
     def isDirectory(self):
-        if self.attribute & 16: #AJN TODO FIXME
+        if self.attribute & 16:
             return True
         return False
 

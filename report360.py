@@ -108,7 +108,7 @@ class Report360:
                 name_type = "d"
             else:
                 name_type = "r"
-            self.xprint("      <name_type>d</name_type>")
+            self.xprint("      <name_type>%s</name_type>" % name_type)
             if fi.fr:
                 self.xprint("      <filesize>%d</filesize>" % fi.fr.fsize)
                 if fi.fr.allocated:
