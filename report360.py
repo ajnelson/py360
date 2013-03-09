@@ -99,6 +99,7 @@ class Report360:
                 dfxml_fn = "/".join(dfxml_fn_parts)
                 self.xprint("      <filename>%s</filename>" % dfxml_fn) #DFXML filenames omit the leading "/"
             self.xprint("      <py360:filename>%s</py360:filename>" % filename[1:]) #DFXML filenames omit the leading "/"
+            self.xprint("      <xtaf:flags>%r</xtaf:flags>" % fr.attribute)
 #      <partition>1</partition>
             self.xprint("      <id>%d</id>" % FILE_ID_COUNTER)
             FILE_ID_COUNTER += 1
