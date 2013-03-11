@@ -13,8 +13,6 @@ from cStringIO import StringIO
 
 import hashlib
 
-import dfxml
-
 FILE_ID_COUNTER = 0
 
 class Report360:
@@ -122,9 +120,9 @@ class Report360:
 #self.xprint("      <nlink>18</nlink>")
 #                self.xprint("      <uid>0</uid>") #XTAF doesn't really have a user id
 #                self.xprint("      <gid>0</gid>") #XTAF doesn't really have a group id
-                self.xprint("      <mtime>%s</mtime>" % dfxml.dftime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)))
-                self.xprint("      <crtime>%s</crtime>" % dfxml.dftime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate)))
-                self.xprint("      <atime>%s</atime>" % dfxml.dftime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)))
+                self.xprint("      <mtime>%s</mtime>" % xboxtime.fatx2iso8601time(fi.fr.mtime, fi.fr.mdate))
+                self.xprint("      <crtime>%s</crtime>" % xboxtime.fatx2iso8601time(fi.fr.ctime, fi.fr.cdate))
+                self.xprint("      <atime>%s</atime>" % xboxtime.fatx2iso8601time(fi.fr.atime, fi.fr.adate))
 #self.xprint("      <libmagic>data </libmagic>")
                 if fi.clusters:
                     self.xprint("      <byte_runs>")
