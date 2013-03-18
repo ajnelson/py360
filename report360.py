@@ -129,17 +129,26 @@ class Report360:
                     cluster_file_offset = 0
                     md5obj = hashlib.md5()
                     sha1obj = hashlib.sha1()
-                    for cluster in fi.clusters:
+
+                    last_cluster_length = fi.fr.fsize % (512 * part.sectors_per_cluster)
+                    if last_cluster_length == 0:
+                        #Account for full last cluster
+                        last_cluster_length = 512 * part.sectors_per_cluster
+                    for (cluster_no, cluster) in enumerate(fi.clusters):
                         #Build byte runs
-                        cluster_fs_offset = -1
-                        cluster_img_offset = -1
-                        cluster_length = 512
+                        cluster_fs_offset = (cluster - 1) * part.sectors_per_cluster * 512 + part.root_dir
+                        cluster_img_offset = cluster_fs_offset + part.image_offset
+                        if cluster_no+1 == len(fi.clusters):
+                            cluster_length = last_cluster_length
+                        else:
+                            cluster_length = 512 * part.sectors_per_cluster
                         self.xprint("        <byte_run py360:cluster='%d' file_offset='%d' fs_offset='%d' img_offset='%d' len='%d' />" % (cluster, cluster_file_offset, cluster_fs_offset, cluster_img_offset, cluster_length))
-                        cluster_file_offset += 512
+                        cluster_file_offset += cluster_length
 
                         #While we're looping, start building hashes as well
+                        #Be mindful of the 0 cluster, likely to appear in unallocated files.
                         if cluster != 0:
-                            cluster_data = part.read_cluster(cluster)
+                            cluster_data = part.read_cluster(cluster, cluster_length)
                             md5obj.update(cluster_data)
                             sha1obj.update(cluster_data)
                     self.xprint("      </byte_runs>")
