@@ -121,10 +121,18 @@ class Partition(object):
         fd.seek(0,2)
         input_end = fd.tell()
 
+        #Parse on-disk data in the superblock
         fd.seek(start,0)
         if fd.read(4) != 'XTAF':
             # TODO: Improve this detection mechanism
             raise PartitionDefinitionError("Partition not found at input offset %r" % start)
+        raw_vol_id = fd.read(4)
+        raw_sectors_per_cluster = fd.read(4)
+        raw_num_fats = fd.read(4)
+
+        vol_id = struct.unpack(">I", raw_vol_id)[0]
+        sectors_per_cluster = struct.unpack(">I", raw_sectors_per_cluster)[0]
+        num_fats = struct.unpack(">I", raw_num_fats)[0]
 
         fat = start + 0x1000L
 
@@ -164,6 +172,9 @@ class Partition(object):
         fd.seek(0, 0)
 
         # Setup internal variables
+        self.vol_id = vol_id
+        self.sectors_per_cluster = sectors_per_cluster
+        self.num_fats = num_fats
         self.root_dir_cluster = 1
         self.start = start
         self.fat = fat
