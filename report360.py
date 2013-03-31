@@ -124,6 +124,8 @@ class Report360:
                 self.xprint("      <crtime>%s</crtime>" % xboxtime.fatx2iso8601time(fi.fr.ctime, fi.fr.cdate))
                 self.xprint("      <atime>%s</atime>" % xboxtime.fatx2iso8601time(fi.fr.atime, fi.fr.adate))
 #self.xprint("      <libmagic>data </libmagic>")
+                if not fi.clusters:
+                    part.initialize_cluster_list(fi)
                 if fi.clusters:
                     self.xprint("      <byte_runs>")
                     cluster_file_offset = 0

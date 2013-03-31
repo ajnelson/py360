@@ -208,6 +208,14 @@ class Partition(object):
         else:
             return ""
 
+    def initialize_cluster_list(self, fileobj):
+        """ Guarantees that fileobj.clusters is initialized; returns 1 on reading an empty file, 0 otherwise """
+        if len(fileobj.clusters) == 0: # Initialise cluster list if necessary
+            fileobj.clusters = self.get_clusters(fileobj.fr)
+            if len(fileobj.clusters) == 0: # Check the return of get_clusters
+                print("Reading Empty File")
+                return 1
+
     #TODO: Refactor into something smaller
     def read_file(self, filename=None, fileobj=None, size=-1, offset=0):
         """ Reads an entire file given a filename or fileobj """
@@ -221,11 +229,9 @@ class Partition(object):
             else:
                 size = fileobj.fr.fsize # Read the whole file (skip the slack space)
 
-        if len(fileobj.clusters) == 0: # Initialise cluster list if necessary
-            fileobj.clusters = self.get_clusters(fileobj.fr)
-            if len(fileobj.clusters) == 0: # Check the return of get_clusters
-                print("Reading Empty File")
-                return ""
+        rc = self.initialize_cluster_list(fileobj)
+        if rc == 1:
+            return ""
 
         clusters_to_skip = offset // 0x4000
         offset %= 0x4000
