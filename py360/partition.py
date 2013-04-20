@@ -179,6 +179,7 @@ class Partition(object):
         self.start = start
         self.fat = fat
         self.root_dir = rootdir
+        self.rel_root_dir = rootdir - start
         self.size = size
         self.fat_num = fatsize
         self.fd = fd

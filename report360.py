@@ -67,6 +67,7 @@ class Report360:
         self.output("\n*********************")
         self.xprint("""  <volume offset="%s">""" % str(part.start))
         self.xprint("    <partition_offset>%s</partition_offset>" % str(part.start))
+        self.xprint("    <xtaf:root_directory_offset>%u</xtaf:root_directory_offset><!--This is %d 512-byte sectors from the star of the file system.-->" % (part.rel_root_dir, part.rel_root_dir/512))
 #        self.xprint("    <block_size></block_size>") #TODO report cluster size with the sectors-per-cluster value
 #TODO
 #      <ftype>256</ftype>
