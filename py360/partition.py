@@ -13,6 +13,9 @@ import struct
 from threading import Lock
 from cStringIO import StringIO
 
+FAT32_MASK = 0x0fffffff
+FAT16_MASK = 0x0000ffff
+
 # TODO: Optional thread safety
 class XTAFFD(object):
     """ A File-like object for representing FileObjs """
@@ -105,6 +108,7 @@ class Partition(object):
         The allfiles member has a dictionary of all the files in the partition
         The rootfile member contains a directory object that represents the root directory 
     """
+
     def __str__(self):
         return "XTAF Partition: %s, offset %r" % (self.filename, self.image_offset)
 
@@ -137,6 +141,7 @@ class Partition(object):
         fat = start + 0x1000L
 
         #Determine length of partition (many require hard-coding)
+        #part_sizes: partition offset -> partition length; does not include last partition, which varies with the drive size.
         part_sizes = dict()
         part_sizes[0x80000L]     = 512 * 4194304
         part_sizes[0x80080000L]  = 512 * 4587520
@@ -153,9 +158,31 @@ class Partition(object):
         else:
             raise PartitionDefinitionError("Previously-unexperienced partition at offset %r; unknown how to proceed.")
 
-        rootdir = -(-((end - start) >> 12L) & -0x1000L) + fat #TODO: Understand this better
+        uxtaf_partitionsize = end - start
+        uxtaf_numclusters = uxtaf_partitionsize / (512*sectors_per_cluster)
+        if uxtaf_numclusters >= 0xfff4:
+            uxtaf_fat_mask = FAT32_MASK
+            uxtaf_fat_multiplier = 4
+        else:
+            uxtaf_fat_mask = FAT16_MASK
+            uxtaf_fat_multiplier = 2
+        uxtaf_fat_size = uxtaf_numclusters * uxtaf_fat_multiplier
+        uxtaf_fat_sector_count = uxtaf_fat_size / 512
+        uxtaf_fat_start = 0x1000L
+        uxtaf_rootstart = uxtaf_fat_sector_count + uxtaf_fat_start
+        #Correct for hd quirk - the root def'n up to now sometimes points to a blank block immediately before the root sector.
+        fd.seek(start + uxtaf_rootstart,0)
+        quirk_data = fd.read(4096)
+        if len(quirk_data) < 4096:
+            raise Exception("Read failed at offset %r." % (start+uxtaf_rootstart,))
+        for quirk_byte in quirk_data:
+            if ord(quirk_byte) != 0:
+                uxtaf_rootstart += 8
+                break
+        rootdir = start + uxtaf_rootstart * 512
+        fatsize = uxtaf_fat_size
+
         size = end - rootdir
-        fatsize = size >> 14L
 
         #sys.stderr.write("Debug: start = %r\n" % start)
         #sys.stderr.write("Debug: size = %r\n" % size)
