@@ -158,45 +158,48 @@ class Partition(object):
         else:
             raise PartitionDefinitionError("Previously-unexperienced partition at offset %r; unknown how to proceed.")
 
-        uxtaf_partitionsize = end - start
-        uxtaf_part_numclusters = uxtaf_partitionsize / (512*sectors_per_cluster)
-        if uxtaf_part_numclusters >= 0xfff4:
+        partition_size = end - start
+        part_numclusters = partition_size / (512*sectors_per_cluster)
+        if part_numclusters >= 0xfff4:
             uxtaf_fat_mask = FAT32_MASK
             uxtaf_fat_multiplier = 4
+            rootdir = -(-((end - start) >> 12L) & -0x1000L) + fat #TODO: Understand this better
+            size = end - rootdir
+            fatsize = size >> 14L
         else:
             uxtaf_fat_mask = FAT16_MASK
             uxtaf_fat_multiplier = 2
-        uxtaf_fat_size = uxtaf_part_numclusters * uxtaf_fat_multiplier
-        if uxtaf_fat_size % 4096 != 0:
-            uxtaf_fat_size = ((uxtaf_fat_size // 4096) + 1) * 4096
-        uxtaf_fat_sector_count = uxtaf_fat_size // 512
-        uxtaf_fat_start = 8
-        uxtaf_rootstart = uxtaf_fat_sector_count + uxtaf_fat_start
-        sys.stderr.write("Debug: start = %r\n" % start)
-        sys.stderr.write("Debug: end = %r\n" % end)
-        sys.stderr.write("Debug: sectors_per_cluster = %r\n" % sectors_per_cluster)
-        sys.stderr.write("Debug: uxtaf_partitionsize = %r\n" % uxtaf_partitionsize)
-        sys.stderr.write("Debug: uxtaf_part_numclusters = %r\n" % uxtaf_part_numclusters)
-        sys.stderr.write("Debug: uxtaf_fat_size = %r\n" % uxtaf_fat_size)
-        sys.stderr.write("Debug: uxtaf_fat_sector_count = %r\n" % uxtaf_fat_sector_count)
-        sys.stderr.write("Debug: uxtaf_rootstart = %r (before quirk)\n" % uxtaf_rootstart)
-        #Correct for hd quirk - the root def'n up to now sometimes points to a blank 4KiB block immediately before the root sector.
-        fd.seek(start + uxtaf_rootstart,0)
-        quirk_data = fd.read(4096)
-        if len(quirk_data) < 4096:
-            raise Exception("Read failed at offset %r." % (start+uxtaf_rootstart,))
-        for (quirk_byte_no, quirk_byte) in enumerate(quirk_data):
-            if ord(quirk_byte) != 0:
-                break
-            elif quirk_byte_no == 4095:
-                uxtaf_rootstart += 8
-        rootdir = start + uxtaf_rootstart * 512
-        sys.stderr.write("Debug: uxtaf_rootstart = %r (after quirk)\n" % uxtaf_rootstart)
-        sys.stderr.write("Debug: rootdir = %r\n" % rootdir)
-        sys.stderr.write("Debug: rootdir - start = %r\n" % (rootdir - start))
-        fatsize = uxtaf_fat_size
+            uxtaf_fat_size = part_numclusters * uxtaf_fat_multiplier
+            if uxtaf_fat_size % 4096 != 0:
+                uxtaf_fat_size = ((uxtaf_fat_size // 4096) + 1) * 4096
+            uxtaf_fat_sector_count = uxtaf_fat_size // 512
+            uxtaf_fat_start = 8
+            uxtaf_rootstart = uxtaf_fat_sector_count + uxtaf_fat_start
+            sys.stderr.write("Debug: start = %r\n" % start)
+            sys.stderr.write("Debug: end = %r\n" % end)
+            sys.stderr.write("Debug: sectors_per_cluster = %r\n" % sectors_per_cluster)
+            sys.stderr.write("Debug: partition_size = %r\n" % partition_size)
+            sys.stderr.write("Debug: part_numclusters = %r\n" % part_numclusters)
+            sys.stderr.write("Debug: uxtaf_fat_size = %r\n" % uxtaf_fat_size)
+            sys.stderr.write("Debug: uxtaf_fat_sector_count = %r\n" % uxtaf_fat_sector_count)
+            sys.stderr.write("Debug: uxtaf_rootstart = %r (before quirk)\n" % uxtaf_rootstart)
+            #Correct for hd quirk - the root def'n up to now sometimes points to a blank 4KiB block immediately before the root sector.
+            fd.seek(start + uxtaf_rootstart,0)
+            quirk_data = fd.read(4096)
+            if len(quirk_data) < 4096:
+                raise Exception("Read failed at offset %r." % (start+uxtaf_rootstart,))
+            for (quirk_byte_no, quirk_byte) in enumerate(quirk_data):
+                if ord(quirk_byte) != 0:
+                    break
+                elif quirk_byte_no == 4095:
+                    uxtaf_rootstart += 8
+            rootdir = start + uxtaf_rootstart * 512
+            sys.stderr.write("Debug: uxtaf_rootstart = %r (after quirk)\n" % uxtaf_rootstart)
+            sys.stderr.write("Debug: rootdir = %r\n" % rootdir)
+            sys.stderr.write("Debug: rootdir - start = %r\n" % (rootdir - start))
+            fatsize = uxtaf_fat_size
 
-        size = end - rootdir
+            size = end - rootdir
 
         #sys.stderr.write("Debug: start = %r\n" % start)
         #sys.stderr.write("Debug: size = %r\n" % size)
