@@ -23,10 +23,12 @@ class Report360:
         self.outfd = out
         self.errfd = err
         self.xmlfd = None
+        self.record_execution_environment = None #Only used for DFXML output
     
-    def init_dfxml(self, use_xml):
+    def init_dfxml(self, use_xml, record_execution_environment=None):
         if use_xml:
             self.xmlfd = open("py360out.dfxml", "w")
+        self.record_execution_environment = record_execution_environment
 
     def output(self, string, fd = None):
 
@@ -67,7 +69,7 @@ class Report360:
         self.output("\n*********************")
         self.xprint("""  <volume offset="%s">""" % str(part.start))
         self.xprint("    <partition_offset>%s</partition_offset>" % str(part.start))
-        self.xprint("    <xtaf:root_directory_offset>%u</xtaf:root_directory_offset><!--This is %d 512-byte sectors from the start of the file system.-->" % (part.rel_root_dir, part.rel_root_dir/512))
+        self.xprint("    <sector_size>512</sector_size>")
 #        self.xprint("    <block_size></block_size>") #TODO report cluster size with the sectors-per-cluster value
 #TODO
 #      <ftype>256</ftype>
@@ -75,6 +77,7 @@ class Report360:
 #      <block_count>235516</block_count>
 #      <first_block>0</first_block>
 #      <last_block>235515</last_block>
+#      <allocated_only>0</allocated_only>
 
         self.output(part)
         self.output("*********************")
@@ -97,8 +100,6 @@ class Report360:
                 dfxml_fn_parts.reverse()
                 dfxml_fn = "/".join(dfxml_fn_parts)
                 self.xprint("      <filename>%s</filename>" % dfxml_fn) #DFXML filenames omit the leading "/"
-                self.xprint("      <xtaf:flags>%r</xtaf:flags>" % fi.fr.attribute)
-            self.xprint("      <py360:filename>%s</py360:filename>" % filename[1:]) #DFXML filenames omit the leading "/"
 #      <partition>1</partition>
             self.xprint("      <id>%d</id>" % FILE_ID_COUNTER)
             FILE_ID_COUNTER += 1
@@ -116,14 +117,15 @@ class Report360:
                     self.xprint("      <alloc>0</alloc>")
 #TODO
 #self.xprint("      <used>1</used>")
+#self.xprint("      <orphan>1</orphan>")
 #self.xprint("      <inode>2</inode>")
 #self.xprint("      <meta_type>2</meta_type>")
 #self.xprint("      <nlink>18</nlink>")
 #                self.xprint("      <uid>0</uid>") #XTAF doesn't really have a user id
 #                self.xprint("      <gid>0</gid>") #XTAF doesn't really have a group id
                 self.xprint("      <mtime prec=\"2\">%s</mtime>" % xboxtime.fatx2iso8601time(fi.fr.mtime, fi.fr.mdate))
-                self.xprint("      <crtime prec=\"2\">%s</crtime>" % xboxtime.fatx2iso8601time(fi.fr.ctime, fi.fr.cdate))
                 self.xprint("      <atime prec=\"2\">%s</atime>" % xboxtime.fatx2iso8601time(fi.fr.atime, fi.fr.adate))
+                self.xprint("      <crtime prec=\"2\">%s</crtime>" % xboxtime.fatx2iso8601time(fi.fr.ctime, fi.fr.cdate))
 #self.xprint("      <libmagic>data </libmagic>")
                 if not fi.clusters:
                     part.initialize_cluster_list(fi)
@@ -161,8 +163,14 @@ class Report360:
                 self.output("%s\t%s\t%s\n" % (time.ctime(xboxtime.fat2unixtime(fi.fr.mtime, fi.fr.mdate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.atime, fi.fr.adate)),\
                                             time.ctime(xboxtime.fat2unixtime(fi.fr.ctime, fi.fr.cdate))))
+
+            #DFXML schema v1.1.0rfc1 means extension elements have to come at the end.  Saner code layout awaits XML Schema 1.1 support.
+            if fi.fr:
+                self.xprint("      <xtaf:flags>%r</xtaf:flags>" % fi.fr.attribute)
+            self.xprint("      <py360:filename>%s</py360:filename>" % filename[1:]) #DFXML filenames omit the leading "/"
             self.xprint("    </fileobject>")
-        self.xprint("""  </volume>""")
+        self.xprint("    <xtaf:root_directory_offset>%u</xtaf:root_directory_offset><!--This is %d 512-byte sectors from the start of the file system.-->" % (part.rel_root_dir, part.rel_root_dir/512))
+        self.xprint("  </volume>")
                                             
     def print_stfs(self, stf):
         """ Prints out information contained in the provided STFS object """
@@ -256,38 +264,43 @@ class Report360:
         if self.filename == None:
             return
 
-        self.xprint("""<?xml version='1.0' encoding='UTF-8'?>
-<dfxml version='1.0'>
-  <metadata 
+        self.xprint("""\
+<?xml version='1.0' encoding='UTF-8'?>
+<dfxml
   xmlns='http://www.forensicswiki.org/wiki/Category:Digital_Forensics_XML'
+  xmlns:dc='http://purl.org/dc/elements/1.1/'
+  xmlns:py360='http://www.forensicswiki.org/wiki/Py360'
   xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' 
-  xmlns:dc='http://purl.org/dc/elements/1.1/'>
+  xmlns:xtaf='http://www.forensicswiki.org/wiki/XTAF'
+  version='1.0'>
+  <metadata>
     <dc:type>Disk Image</dc:type>
   </metadata>
-  <creator version='1.0'>
+  <creator>
     <program>py360</program>
     <version>""" + __version__ + """</version>
     <build_environment>
       <compiler>python v""" + sys.version.split(" ")[0] + """</compiler>
-    </build_environment>
-    <execution_environment>""")
+    </build_environment>""")
 
-        TODO = """
-      <os_sysname>Darwin</os_sysname>
-      <os_release>11.4.0</os_release>
-      <os_version>Darwin Kernel Version 11.4.0: Mon Apr  9 19:32:15 PDT 2012; root:xnu-1699.26.8~1/RELEASE_X86_64</os_version>
-      <host>paws.local</host>
-      <arch>x86_64</arch>
-      <command_line>fiwalk -X/Users/alex/Documents/School/UCSC/SSRC/svn/forensics/src/geoproc.git/results-test/Users/alex/corpus/available/honeynet-scan29.aff/make_fiwalk_dfxml.sh/fiout.xml -f /Users/alex/corpus/available/honeynet-scan29.aff -G0</command_line>
-      <start_time>2012-09-03T01:09:15Z</start_time>"""
+        if self.record_execution_environment:
+            uname = os.uname()
+            self.xprint("""\
+    <execution_environment>
+      <os_sysname>""" + uname[0] + """</os_sysname>
+      <os_release>""" + uname[2] + """</os_release>
+      <os_version>""" + uname[3]  + """</os_version>
+      <host>""" + uname[1] + """</host>
+      <arch>""" + uname[4] + """</arch>
+      <command_line>""" + " ".join(sys.argv) + """</command_line>
+      <start_time>""" + time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()) + """</start_time>
+    </execution_environment>""")
 
-        self.xprint("""    </execution_environment>
+        self.xprint("""\
   </creator>
   <source>
     <image_filename>""" + self.filename + """</image_filename>
   </source>""")
-        TODO = """  <pagesize>16777216</pagesize>"""
-        self.xprint("  <sectorsize>512</sectorsize>")
 
         self.output("Opening %s" % self.filename, self.errfd)
         #Loop through all known partitions
@@ -378,12 +391,13 @@ if __name__ == '__main__':
     parser.add_argument("file_output_path", metavar="[path to write images to]", default=None, nargs="?")
     #TODO Implement -X flag like Fiwalk
     parser.add_argument("-x", "--xml", help="Output DFXML (outputs to py360.dfxml)", action="store_true")
+    parser.add_argument("--record-exec-env", help="Record execution environment in DFXML output", action="store_true")
     args = parser.parse_args()
 
     if args.file_output_path:
         reporter = Report360(args.xtaf_image, args.file_output_path)
     else:
         reporter = Report360(args.xtaf_image)
-    reporter.init_dfxml(args.xml)
+    reporter.init_dfxml(args.xml, args.record_exec_env)
 
     reporter.document_image()
