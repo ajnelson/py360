@@ -11,6 +11,10 @@ import time, os, sys
 from py360 import xdbf, partition, account, stfs, xboxmagic, xboxtime
 from cStringIO import StringIO
 
+import logging
+
+_logger = logging.getLogger(os.path.basename(__file__))
+
 import hashlib
 
 FILE_ID_COUNTER = 0
@@ -312,7 +316,12 @@ class Report360:
           0x120EB0000L,
           0x130EB0000L
         ]:
-          x = partition.Partition(self.filename, part_offset)
+          try:
+              x = partition.Partition(self.filename, part_offset)
+          except partition.PartitionDefinitionError as e:
+              #Skip the partition if it couldn't be parsed
+              _logger.warning(e.message)
+              continue
           self.print_xtaf(x)
 
           # Find STFS files
@@ -389,10 +398,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("xtaf_image", metavar="XTAFIMAGE.bin")
     parser.add_argument("file_output_path", metavar="[path to write images to]", default=None, nargs="?")
+    parser.add_argument("-d", "--debug", help="Enable debug printing", action="store_true")
     #TODO Implement -X flag like Fiwalk
     parser.add_argument("-x", "--xml", help="Output DFXML (outputs to py360.dfxml)", action="store_true")
     parser.add_argument("--record-exec-env", help="Record execution environment in DFXML output", action="store_true")
     args = parser.parse_args()
+
+    logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
     if args.file_output_path:
         reporter = Report360(args.xtaf_image, args.file_output_path)
