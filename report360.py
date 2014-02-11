@@ -307,15 +307,23 @@ class Report360:
   </source>""")
 
         self.output("Opening %s" % self.filename, self.errfd)
+
+        #We don't need to loop on a partition image
+        processed_partition_image = False
+
         #Loop through all known partitions
         for part_offset in [
+          0L,          #In case this is a partition image
           0x80000L,
-          #0x80080000L, #Encrypted partition
+          0x80080000L, #Encrypted partition
           0x10C080000L,
           0x118EB0000L,
           0x120EB0000L,
           0x130EB0000L
         ]:
+          if processed_partition_image:
+              break
+
           try:
               x = partition.Partition(self.filename, part_offset)
           except partition.PartitionDefinitionError as e:
@@ -323,6 +331,9 @@ class Report360:
               _logger.warning(e.message)
               continue
           self.print_xtaf(x)
+
+          if part_offset == 0:
+              processed_partition_image = True
 
           # Find STFS files
           self.output("Processing all files", self.errfd)

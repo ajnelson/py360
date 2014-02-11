@@ -148,7 +148,13 @@ class Partition(object):
         part_sizes[0x10C080000L] = 512 * 422272
         part_sizes[0x118EB0000L] = 512 * 262144
         part_sizes[0x120EB0000L] = 512 * 524288
-        if start == 0x130EB0000L:
+        if start == 0:
+            #Image is a partition: End determined by input file size
+            #First, check that we're not looking at the encrypted partition
+            if input_end == part_sizes[0x80080000L]:
+                raise PartitionEncryptedError("py360 does not support analyzing the encrypted partition at offset %r." % start)
+            end = input_end
+        elif start == 0x130EB0000L:
             #Data partition: End determined by input file size
             end = input_end
         elif start == 0x80080000L:
