@@ -12,6 +12,10 @@ import mmap
 import struct
 from threading import Lock
 from cStringIO import StringIO
+import logging
+import os
+
+_logger = logging.getLogger(os.path.basename(__file__))
 
 FAT32_MASK = 0x0fffffff
 FAT16_MASK = 0x0000ffff
@@ -150,9 +154,9 @@ class Partition(object):
         part_sizes[0x120EB0000L] = 512 * 524288
         if start == 0:
             #Image is a partition: End determined by input file size
-            #First, check that we're not looking at the encrypted partition
-            if input_end == part_sizes[0x80080000L]:
-                raise PartitionEncryptedError("py360 does not support analyzing the encrypted partition at offset %r." % start)
+            #First, check that we're not looking at the encrypted partition (commented out for experimenting)
+            #if input_end == part_sizes[0x80080000L]:
+            #    raise PartitionEncryptedError("py360 does not support analyzing the encrypted partition at offset %r." % start)
             end = input_end
         elif start == 0x130EB0000L:
             #Data partition: End determined by input file size
@@ -166,6 +170,7 @@ class Partition(object):
 
         partition_size = end - start
         part_numclusters = partition_size / (512*sectors_per_cluster)
+        quirk_block_present = None
         if part_numclusters >= 0xfff4:
             uxtaf_fat_mask = FAT32_MASK
             uxtaf_fat_multiplier = 4
@@ -181,14 +186,14 @@ class Partition(object):
             uxtaf_fat_sector_count = uxtaf_fat_size // 512
             uxtaf_fat_start = 8
             uxtaf_rootstart = uxtaf_fat_sector_count + uxtaf_fat_start
-            sys.stderr.write("Debug: start = %r\n" % start)
-            sys.stderr.write("Debug: end = %r\n" % end)
-            sys.stderr.write("Debug: sectors_per_cluster = %r\n" % sectors_per_cluster)
-            sys.stderr.write("Debug: partition_size = %r\n" % partition_size)
-            sys.stderr.write("Debug: part_numclusters = %r\n" % part_numclusters)
-            sys.stderr.write("Debug: uxtaf_fat_size = %r\n" % uxtaf_fat_size)
-            sys.stderr.write("Debug: uxtaf_fat_sector_count = %r\n" % uxtaf_fat_sector_count)
-            sys.stderr.write("Debug: uxtaf_rootstart = %r (before quirk)\n" % uxtaf_rootstart)
+            _logger.debug("start = %r\n" % start)
+            _logger.debug("end = %r\n" % end)
+            _logger.debug("sectors_per_cluster = %r\n" % sectors_per_cluster)
+            _logger.debug("partition_size = %r\n" % partition_size)
+            _logger.debug("part_numclusters = %r\n" % part_numclusters)
+            _logger.debug("uxtaf_fat_size = %r\n" % uxtaf_fat_size)
+            _logger.debug("uxtaf_fat_sector_count = %r\n" % uxtaf_fat_sector_count)
+            _logger.debug("uxtaf_rootstart = %r (before quirk)\n" % uxtaf_rootstart)
             #Correct for hd quirk - the root def'n up to now sometimes points to a blank 4KiB block immediately before the root sector.
             fd.seek(start + uxtaf_rootstart,0)
             quirk_data = fd.read(4096)
@@ -196,13 +201,15 @@ class Partition(object):
                 raise Exception("Read failed at offset %r." % (start+uxtaf_rootstart,))
             for (quirk_byte_no, quirk_byte) in enumerate(quirk_data):
                 if ord(quirk_byte) != 0:
+                    quirk_block_present = False
                     break
                 elif quirk_byte_no == 4095:
+                    quirk_block_present = True
                     uxtaf_rootstart += 8
             rootdir = start + uxtaf_rootstart * 512
-            sys.stderr.write("Debug: uxtaf_rootstart = %r (after quirk)\n" % uxtaf_rootstart)
-            sys.stderr.write("Debug: rootdir = %r\n" % rootdir)
-            sys.stderr.write("Debug: rootdir - start = %r\n" % (rootdir - start))
+            _logger.debug("uxtaf_rootstart = %r (after quirk)\n" % uxtaf_rootstart)
+            _logger.debug("rootdir = %r\n" % rootdir)
+            _logger.debug("rootdir - start = %r\n" % (rootdir - start))
             fatsize = uxtaf_fat_size
 
             size = end - rootdir
@@ -238,6 +245,8 @@ class Partition(object):
         self.lock = Lock()
         #self.rootfile = self.parse_directory()
         self.rootfile = self.init_root_directory(recurse = precache)
+        self.uxtaf_quirk_block = quirk_block_present
+        self.xtaf_variant = 32 if uxtaf_fat_mask == FAT32_MASK else 16
 
     def read_cluster(self, cluster, length=0x4000, offset=0L):
         """ Given a cluster number returns that cluster """

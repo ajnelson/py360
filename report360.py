@@ -77,7 +77,7 @@ class Report360:
 #        self.xprint("    <block_size></block_size>") #TODO report cluster size with the sectors-per-cluster value
 #TODO
 #      <ftype>256</ftype>
-        self.xprint("    <ftype_str>XTAF</ftype_str>") #TODO Clarify XTAF16 or XTAF32
+        self.xprint("    <ftype_str>XTAF%d</ftype_str>" % part.xtaf_variant)
 #      <block_count>235516</block_count>
 #      <first_block>0</first_block>
 #      <last_block>235515</last_block>
@@ -174,6 +174,7 @@ class Report360:
             self.xprint("      <py360:filename>%s</py360:filename>" % filename[1:]) #DFXML filenames omit the leading "/"
             self.xprint("    </fileobject>")
         self.xprint("    <xtaf:root_directory_offset>%u</xtaf:root_directory_offset><!--This is %d 512-byte sectors from the start of the file system.-->" % (part.rel_root_dir, part.rel_root_dir/512))
+        self.xprint("    <uxtaf:quirk_block>%r</uxtaf:quirk_block>" % part.uxtaf_quirk_block)
         self.xprint("  </volume>")
                                             
     def print_stfs(self, stf):
@@ -274,6 +275,7 @@ class Report360:
   xmlns='http://www.forensicswiki.org/wiki/Category:Digital_Forensics_XML'
   xmlns:dc='http://purl.org/dc/elements/1.1/'
   xmlns:py360='http://www.forensicswiki.org/wiki/Py360'
+  xmlns:uxtaf='http://www.forensicswiki.org/wiki/uxtaf'
   xmlns:xsi='http://www.w3.org/2001/XMLSchema-instance' 
   xmlns:xtaf='http://www.forensicswiki.org/wiki/XTAF'
   version='1.0'>
