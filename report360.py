@@ -332,6 +332,10 @@ class Report360:
               #Skip the partition if it couldn't be parsed
               _logger.warning(e.message)
               continue
+          except partition.PartitionEncryptedError as e:
+              #Skip the partition if it couldn't be parsed
+              _logger.warning(e.message)
+              continue
           self.print_xtaf(x)
 
           if part_offset == 0:
