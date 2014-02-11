@@ -29,9 +29,9 @@ class Report360:
         self.xmlfd = None
         self.record_execution_environment = None #Only used for DFXML output
     
-    def init_dfxml(self, use_xml, record_execution_environment=None):
-        if use_xml:
-            self.xmlfd = open("py360out.dfxml", "w")
+    def init_dfxml(self, xmlfilename, record_execution_environment=None):
+        if xmlfilename:
+            self.xmlfd = open(xmlfilename, "w")
         self.record_execution_environment = record_execution_environment
 
     def output(self, string, fd = None):
@@ -400,7 +400,7 @@ if __name__ == '__main__':
     parser.add_argument("file_output_path", metavar="[path to write images to]", default=None, nargs="?")
     parser.add_argument("-d", "--debug", help="Enable debug printing", action="store_true")
     #TODO Implement -X flag like Fiwalk
-    parser.add_argument("-x", "--xml", help="Output DFXML (outputs to py360.dfxml)", action="store_true")
+    parser.add_argument("-X", "--xml", help="Output DFXML to named file (overwrites)")
     parser.add_argument("--record-exec-env", help="Record execution environment in DFXML output", action="store_true")
     args = parser.parse_args()
 
