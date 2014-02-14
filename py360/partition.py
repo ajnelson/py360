@@ -20,6 +20,10 @@ _logger = logging.getLogger(os.path.basename(__file__))
 FAT32_MASK = 0x0fffffff
 FAT16_MASK = 0x0000ffff
 
+XTAFFS_ROOT_INODENO = 2 #Root directory inode number
+XTAFFS_FIRST_NORMINO = 3 
+XTAFFS_DENTRIES_PER_SECTOR = 8
+
 # TODO: Optional thread safety
 class XTAFFD(object):
     """ A File-like object for representing FileObjs """
@@ -68,6 +72,7 @@ class FileRecord(object):
         self.adate = kwargs["adate"]
         self.allocated = kwargs["allocated"]
         self.xmlname = kwargs["xmlname"]
+        self.pos_within_dir = kwargs["pos_within_dir"]
         self.parent = kwargs.get("parent") #Type: Directory
 
     def isDirectory(self):
@@ -83,6 +88,9 @@ class FileObj(object):
     def __init__(self, fr, clusters):
         self.fr = fr
         self.clusters = clusters
+
+        #Set in parse_directory()
+        self.inode = None
 
     def isDirectory(self):
         return False
@@ -233,11 +241,11 @@ class Partition(object):
         self.sectors_per_cluster = sectors_per_cluster
         self.num_fats = num_fats
         self.root_dir_cluster = 1
-        self.start = start
+        self.start = start #Offset of the partition within the disk; in (TODO) BYTES?
         self.fat = fat
-        self.root_dir = rootdir
-        self.rel_root_dir = rootdir - start
-        self.size = size
+        self.root_dir = rootdir #In bytes
+        self.rel_root_dir = rootdir - start #In bytes
+        self.size = size #In bytes
         self.fat_num = fatsize
         self.fd = fd
         self.fat_data = fatdata # <- FAT is in BIG ENDIAN
@@ -360,7 +368,7 @@ class Partition(object):
                 xmlname = data[pos+2:pos+2+42].strip("\xff\x00")
                 name = '~' + data[pos+2:pos+2+42].strip("\xff\x00")
             elif ord(fnlen) > 42: # Technically >42 should be an error condition
-                sys.stderr.write("Warning: Encountered a directory entry with filename >42 (%d).\n" % ord(fnlen))
+                _logger.warning("Encountered a directory entry with filename >42 (%d).\n" % ord(fnlen))
                 break
             elif ord(fnlen) == 0: # A vacant entry, maybe the end of the directory?
                 pos += 64
@@ -368,6 +376,8 @@ class Partition(object):
             else: 
                 name = data[pos+2:pos+2+42].strip("\xff\x00") # Ignoring fnlen is a bit wasteful
                 xmlname = name
+            _logger.debug("name = %r." % name)
+            _logger.debug("xmlname = %r." % xmlname)
             cl = struct.unpack(">I", data[pos+0x2c:pos+0x2c+4])[0]
             size = struct.unpack(">I", data[pos+0x30:pos+0x30+4])[0]
             creation_date = struct.unpack(">H", data[pos+0x34:pos+0x34+2])[0]
@@ -387,6 +397,7 @@ class Partition(object):
                                                fsize=size, mtime=update_time, mdate=update_date,\
                                                adate=access_date, atime=access_time,\
                                                cdate=creation_date, ctime=creation_time,\
+                                               pos_within_dir=pos//64,
                                                allocated=allocated, xmlname=xmlname, parent=parent))
             else:
                 pass
@@ -462,6 +473,7 @@ class Partition(object):
         """ Creates the root directory object and calls parse_directory on it """
         directory = Directory(None, [self.root_dir_cluster])
         directory.root = True
+        directory.inode = XTAFFS_ROOT_INODENO
         directory.fullpath = '/'
         self.allfiles[directory.fullpath] = directory
         directory = self.parse_directory(directory, recurse = recurse)
@@ -482,12 +494,47 @@ class Partition(object):
             d = dirs_to_process.pop(0)
             if d.root:
                 directory_data = self.read_cluster(self.root_dir_cluster)
+                directory_cluster_nums = [self.root_dir_cluster]
             else:
                 directory_data = self.read_file(fileobj = d)
+                directory_cluster_nums = d.clusters
 
             # Parse the file records returned and optionally requeue subdirectories
             file_records = self.parse_file_records(directory_data, d)
             for fr in file_records:
+                #Compute inode number per TSK formula
+                dentries_per_sector = 8 #(64 bytes/dent, 512/sector)
+                dentries_per_cluster = self.sectors_per_cluster * dentries_per_sector
+
+                #The parenthetical expression is the sector of the directory entry within the data area.
+                #The "Data area" is the file system area immediately after the FAT.
+                #(self.fat is the FAT byte offset, relative to the disk image; fat_num is the number of bytes used in the FAT; and self.start is the file system byte offset within the disk imaage.)
+                #The data area's much better documented in The SleuthKit, tsk/fs/fatfs.c, fatfs_open, defining fatfs->firstdatasect.
+                #Unit: Sectors.
+                _logger.info("self.start = %r." % self.start)
+                _logger.info("self.fat = %r." % self.fat)
+                _logger.info("self.fat_num = %r." % self.fat_num)
+                fs_data_area_offset = ((self.fat-self.start)//512) + (self.fat_num//512)
+
+                _logger.info("d.clusters = " + repr(d.clusters))
+                _logger.info("fr.pos_within_dir = " + repr(fr.pos_within_dir))
+                _logger.info("dentries_per_cluster = " + repr(dentries_per_cluster))
+                cluster_of_dir = d.clusters[fr.pos_within_dir // dentries_per_cluster]
+
+                #Within which sector of the containing cluster is the target directory entry?
+                #Translate pos_within_dir to bytes from dirents to bytes; mod by sector size.
+                #Unit: Sectors.
+                sect_pos_within_dir_cluster = (fr.pos_within_dir * 8) % 512
+
+                #Offset: This is the sector of the directory entry, within the data area.
+                #Unit: Sectors.
+                sect_of_dentry = (cluster_of_dir-1) * self.sectors_per_cluster + sect_pos_within_dir_cluster
+                _logger.info("sect_of_dentry = %r." % sect_of_dentry)
+
+                base_inode = XTAFFS_FIRST_NORMINO + XTAFFS_DENTRIES_PER_SECTOR * sect_of_dentry #TODO(sect_of_dentry - fs_data_area_offset)
+                inode = base_inode + fr.pos_within_dir % dentries_per_sector
+                fr.inode = inode
+                    
                 if fr.isDirectory():
                     d.files[fr.filename] = Directory(fr, [])
                     if recurse:

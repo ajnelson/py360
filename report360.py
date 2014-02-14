@@ -89,13 +89,17 @@ class Report360:
         #for filename in part.allfiles:
         for filename in part.walk():
             fi = part.get_file(filename)
+
             self.xprint("    <fileobject>")
-#TODO
-#self.xprint("      <parent_object>")
-#self.xprint("        <inode>2</inode>")
-#self.xprint("      </parent_object>")
+
+            if fi.fr and fi.fr.parent is not None and fi.fr.parent.inode is not None:
+                self.xprint("      <parent_object>")
+                self.xprint("        <inode>%d</inode>" % fi.fr.parent.inode)
+                self.xprint("      </parent_object>")
+
             #Build filename for XML; py360's built-in names use a leading-tilde convention that other tools don't
             if fi.fr:
+                #Construct path
                 dfxml_fn_parts = [fi.fr.xmlname]
                 fr_pointer = fi.fr
                 while fr_pointer.parent is not None:
@@ -103,6 +107,7 @@ class Report360:
                     fr_pointer = fr_pointer.parent
                 dfxml_fn_parts.reverse()
                 dfxml_fn = "/".join(dfxml_fn_parts)
+                _logger.debug("dfxml_fn = %r." % dfxml_fn)
                 self.xprint("      <filename>%s</filename>" % dfxml_fn) #DFXML filenames omit the leading "/"
 #      <partition>1</partition>
             self.xprint("      <id>%d</id>" % FILE_ID_COUNTER)
@@ -122,11 +127,13 @@ class Report360:
 #TODO
 #self.xprint("      <used>1</used>")
 #self.xprint("      <orphan>1</orphan>")
-#self.xprint("      <inode>2</inode>")
+
+            if fi.fr and fi.fr.inode is not None:
+                self.xprint("      <inode>%d</inode>" % fi.fr.inode)
+
+#TODO
 #self.xprint("      <meta_type>2</meta_type>")
 #self.xprint("      <nlink>18</nlink>")
-#                self.xprint("      <uid>0</uid>") #XTAF doesn't really have a user id
-#                self.xprint("      <gid>0</gid>") #XTAF doesn't really have a group id
                 self.xprint("      <mtime>%s</mtime>" % xboxtime.fatx2iso8601time(fi.fr.mtime, fi.fr.mdate))
                 self.xprint("      <atime>%s</atime>" % xboxtime.fatx2iso8601time(fi.fr.atime, fi.fr.adate))
                 self.xprint("      <crtime>%s</crtime>" % xboxtime.fatx2iso8601time(fi.fr.ctime, fi.fr.cdate))
