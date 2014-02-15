@@ -18,6 +18,7 @@ _logger = logging.getLogger(os.path.basename(__file__))
 import hashlib
 
 FILE_ID_COUNTER = 0
+MAX_XTAF_DRIVE_SIZE = 250059350016 #As of Feb., 2014
 
 class Report360:
     """ A class to output information about py360 types """
@@ -153,13 +154,16 @@ class Report360:
                     for (cluster_no, cluster) in enumerate(fi.clusters):
                         #Build byte runs
                         #Note: part.root_dir is relative to the disk image, not the file system.
-                        #_logger.debug("cluster = %r." % cluster)
-                        #_logger.debug("cluster as bytes = %r." % ((cluster - 1) * part.sectors_per_cluster * 512))
-                        #_logger.debug("part.root_dir = %r." % part.root_dir)
-                        #_logger.debug("part.image_offset = %r." % part.image_offset)
-
                         cluster_img_offset = (cluster - 1) * part.sectors_per_cluster * 512 + part.root_dir
                         cluster_fs_offset = cluster_img_offset - part.image_offset
+
+                        if cluster_img_offset > MAX_XTAF_DRIVE_SIZE:
+                            _logger.error("Insane cluster offset: %r (%s)." % (cluster_img_offset, hex(cluster_img_offset)))
+                            _logger.info("cluster = %r." % cluster)
+                            _logger.info("cluster as bytes = %r." % ((cluster - 1) * part.sectors_per_cluster * 512))
+                            _logger.info("part.root_dir = %r." % part.root_dir)
+                            _logger.info("part.image_offset = %r." % part.image_offset)
+
                         if cluster_no+1 == len(fi.clusters):
                             cluster_length = last_cluster_length
                         else:

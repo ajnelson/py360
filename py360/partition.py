@@ -128,7 +128,6 @@ class Partition(object):
         self.filename = filename
         self.image_offset = start
         self.threadsafe = threadsafe
-        self.SIZE_OF_FAT_ENTRIES = 4
 
         #TODO: Error checking
         fd = open(filename, 'r') # The 'r' is very imporant
@@ -181,14 +180,14 @@ class Partition(object):
         quirk_block_present = None
         if part_numclusters >= 0xfff4:
             uxtaf_fat_mask = FAT32_MASK
-            uxtaf_fat_multiplier = 4
+            self.SIZE_OF_FAT_ENTRIES = 4
             rootdir = -(-((end - start) >> 12L) & -0x1000L) + fat #TODO: Understand this better
             size = end - rootdir
             fatsize = size >> 14L
         else:
             uxtaf_fat_mask = FAT16_MASK
-            uxtaf_fat_multiplier = 2
-            uxtaf_fat_size = part_numclusters * uxtaf_fat_multiplier
+            self.SIZE_OF_FAT_ENTRIES = 2
+            uxtaf_fat_size = part_numclusters * self.SIZE_OF_FAT_ENTRIES
             if uxtaf_fat_size % 4096 != 0:
                 uxtaf_fat_size = ((uxtaf_fat_size // 4096) + 1) * 4096
             uxtaf_fat_sector_count = uxtaf_fat_size // 512
@@ -328,12 +327,14 @@ class Partition(object):
         cl = 0x0
         cl = fr.cluster
         cldata = ''
-        while cl & 0xFFFFFFF not in [0x0, 0xFFFFFFF, 0xFFF8FFFF]:
+        #_logger.debug("get_clusters: Starting cluster: %s." % hex(fr.cluster))
+        #_logger.debug("get_clusters: Starting cluster, masked with 0xFFFFFFF: %s." % hex(fr.cluster & 0xFFFFFFF))
+        while cl & 0xFFFFFFF not in [0x0, 0xFFFFFFF, 0xFF8FFFF]:
             cl_off = cl * self.SIZE_OF_FAT_ENTRIES 
             cldata = self.fat_data[cl_off:cl_off + self.SIZE_OF_FAT_ENTRIES]
             if len(cldata) == 4:
                 cl = struct.unpack(">I", cldata)[0] 
-                if cl & 0xFFFFFFF not in [0x0, 0xFFFFFFF, 0xFFF8FFFF]:
+                if cl & 0xFFFFFFF not in [0x0, 0xFFFFFFF, 0xFF8FFFF]:
                     clusters.append(cl)
             else:
                 if fr.allocated:
