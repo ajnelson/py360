@@ -152,8 +152,14 @@ class Report360:
                         last_cluster_length = 512 * part.sectors_per_cluster
                     for (cluster_no, cluster) in enumerate(fi.clusters):
                         #Build byte runs
-                        cluster_fs_offset = (cluster - 1) * part.sectors_per_cluster * 512 + part.root_dir
-                        cluster_img_offset = cluster_fs_offset + part.image_offset
+                        #Note: part.root_dir is relative to the disk image, not the file system.
+                        #_logger.debug("cluster = %r." % cluster)
+                        #_logger.debug("cluster as bytes = %r." % ((cluster - 1) * part.sectors_per_cluster * 512))
+                        #_logger.debug("part.root_dir = %r." % part.root_dir)
+                        #_logger.debug("part.image_offset = %r." % part.image_offset)
+
+                        cluster_img_offset = (cluster - 1) * part.sectors_per_cluster * 512 + part.root_dir
+                        cluster_fs_offset = cluster_img_offset - part.image_offset
                         if cluster_no+1 == len(fi.clusters):
                             cluster_length = last_cluster_length
                         else:
