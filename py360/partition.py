@@ -328,12 +328,12 @@ class Partition(object):
         cl = 0x0
         cl = fr.cluster
         cldata = ''
-        while cl & 0xFFFFFFF != 0xFFFFFFF:
+        while cl & 0xFFFFFFF not in [0x0, 0xFFFFFFF, 0xFFF8FFFF]:
             cl_off = cl * self.SIZE_OF_FAT_ENTRIES 
             cldata = self.fat_data[cl_off:cl_off + self.SIZE_OF_FAT_ENTRIES]
             if len(cldata) == 4:
                 cl = struct.unpack(">I", cldata)[0] 
-                if cl & 0xFFFFFFF != 0xFFFFFFF:
+                if cl & 0xFFFFFFF not in [0x0, 0xFFFFFFF, 0xFFF8FFFF]:
                     clusters.append(cl)
             else:
                 if fr.allocated:
