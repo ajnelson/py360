@@ -240,11 +240,11 @@ class Partition(object):
         self.sectors_per_cluster = sectors_per_cluster
         self.num_fats = num_fats
         self.root_dir_cluster = 1
-        self.start = start #Offset of the partition within the disk; in (TODO) BYTES?
+        self.start = start #Offset of the partition within the disk; in bytes
         self.fat = fat
-        self.root_dir = rootdir #In bytes
-        self.rel_root_dir = rootdir - start #In bytes
-        self.size = size #In bytes
+        self.root_dir = rootdir #Offset of the root directory within the disk; in bytes
+        self.rel_root_dir = rootdir - start #Offset of the root directory within the partition; in bytes
+        self.size = size #Size of partition from the beginning of root sector to end; in bytes
         self.fat_num = fatsize
         self.fd = fd
         self.fat_data = fatdata # <- FAT is in BIG ENDIAN
@@ -512,14 +512,15 @@ class Partition(object):
                 #(self.fat is the FAT byte offset, relative to the disk image; fat_num is the number of bytes used in the FAT; and self.start is the file system byte offset within the disk imaage.)
                 #The data area's much better documented in The SleuthKit, tsk/fs/fatfs.c, fatfs_open, defining fatfs->firstdatasect.
                 #Unit: Sectors.
-                _logger.info("self.start = %r." % self.start)
-                _logger.info("self.fat = %r." % self.fat)
-                _logger.info("self.fat_num = %r." % self.fat_num)
-                fs_data_area_offset = ((self.fat-self.start)//512) + (self.fat_num//512)
+                _logger.debug("self.start = %r." % self.start)
+                _logger.debug("self.fat = %r." % self.fat)
+                _logger.debug("self.fat_num = %r." % self.fat_num)
+                sect_of_fs_data_area = ((self.fat-self.start)//512) + (self.fat_num//512)
+                _logger.debug("sect_of_fs_data_area = %r (abs. offset %r)." % (sect_of_fs_data_area, sect_of_fs_data_area*512+self.start))
 
-                _logger.info("d.clusters = " + repr(d.clusters))
-                _logger.info("fr.pos_within_dir = " + repr(fr.pos_within_dir))
-                _logger.info("dentries_per_cluster = " + repr(dentries_per_cluster))
+                _logger.debug("d.clusters = " + repr(d.clusters))
+                _logger.debug("fr.pos_within_dir = " + repr(fr.pos_within_dir))
+                _logger.debug("dentries_per_cluster = " + repr(dentries_per_cluster))
                 cluster_of_dir = d.clusters[fr.pos_within_dir // dentries_per_cluster]
 
                 #Within which sector of the containing cluster is the target directory entry?
@@ -530,9 +531,9 @@ class Partition(object):
                 #Offset: This is the sector of the directory entry, within the data area.
                 #Unit: Sectors.
                 sect_of_dentry = (cluster_of_dir-1) * self.sectors_per_cluster + sect_pos_within_dir_cluster
-                _logger.info("sect_of_dentry = %r." % sect_of_dentry)
+                _logger.debug("sect_of_dentry = %r." % sect_of_dentry)
 
-                base_inode = XTAFFS_FIRST_NORMINO + XTAFFS_DENTRIES_PER_SECTOR * sect_of_dentry #TODO(sect_of_dentry - fs_data_area_offset)
+                base_inode = XTAFFS_FIRST_NORMINO + XTAFFS_DENTRIES_PER_SECTOR * (sect_of_dentry - sect_of_fs_data_area)
                 inode = base_inode + fr.pos_within_dir % dentries_per_sector
                 fr.inode = inode
                     
