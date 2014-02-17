@@ -141,8 +141,11 @@ class Report360:
 #self.xprint("      <libmagic>data </libmagic>")
                 if not fi.clusters:
                     part.initialize_cluster_list(fi)
+                if fi.fr and fi.fr.name_brs:
+                    import xml.etree.ElementTree as ET
+                    self.xprint("      " + ET.tostring(fi.fr.name_brs.to_Element()))
                 if fi.clusters:
-                    self.xprint("      <byte_runs>")
+                    self.xprint("      <byte_runs facet=\"data\">")
                     cluster_file_offset = 0
                     md5obj = hashlib.md5()
                     sha1obj = hashlib.sha1()

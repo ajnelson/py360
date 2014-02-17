@@ -17,6 +17,13 @@ import os
 
 _logger = logging.getLogger(os.path.basename(__file__))
 
+#Import DFXML Objects if available
+Objects = None
+try:
+    import Objects
+except:
+    pass
+
 FAT32_MASK = 0x0fffffff
 FAT16_MASK = 0x0000ffff
 
@@ -72,8 +79,9 @@ class FileRecord(object):
         self.adate = kwargs["adate"]
         self.allocated = kwargs["allocated"]
         self.xmlname = kwargs["xmlname"]
-        self.pos_within_dir = kwargs["pos_within_dir"]
+        self.pos_within_dir = kwargs["pos_within_dir"] #Might be able to just use the name_brs instead.
         self.parent = kwargs.get("parent") #Type: Directory
+        self.name_brs = kwargs.get("name_brs")
 
     def isDirectory(self):
         if self.attribute & 16:
@@ -255,10 +263,14 @@ class Partition(object):
         self.uxtaf_quirk_block = quirk_block_present
         self.xtaf_variant = 32 if uxtaf_fat_mask == FAT32_MASK else 16
 
+    def cluster_to_img_byte_address(self, cluster, offset=0L):
+        """ Given a cluster number, returns the byte address of the cluster, relative to the beginning of the disk image """
+        return (cluster - 1 << 14L) + self.root_dir + offset
+
     def read_cluster(self, cluster, length=0x4000, offset=0L):
         """ Given a cluster number returns that cluster """
         if length + offset <= 0x4000: #Sanity check
-            diskoffset = (cluster - 1 << 14L) + self.root_dir + offset
+            diskoffset = self.cluster_to_img_byte_address(cluster, offset)
             # Thread safety is optional because the extra function calls are a large burden
             if self.threadsafe:
                 self.lock.acquire() 
@@ -361,6 +373,7 @@ class Partition(object):
         file_records = []
         pos = 0
         while pos + 64 < len(data): # FileRecord struct offsets
+
             fnlen = data[pos]
             flags = struct.unpack(">b", data[pos+1])[0]
             allocated=True
@@ -388,9 +401,23 @@ class Partition(object):
             update_date = struct.unpack(">H", data[pos+0x3C:pos+0x3C+2])[0]
             update_time = struct.unpack(">H", data[pos+0x3E:pos+0x3E+2])[0]
 
+            name_brs = None
             parent=None
             if parentobj:
                 parent = parentobj.fr
+                if Objects:
+                    name_br = Objects.ByteRun()
+                    parent_clusters = parentobj.clusters
+                    parent_cluster = parentobj.clusters[ pos // (self.sectors_per_cluster*512) ]
+                    parent_cluster_img_byte_address = self.cluster_to_img_byte_address(parent_cluster, 0)
+                    name_br.img_offset = int(parent_cluster_img_byte_address + (pos % (self.sectors_per_cluster*512)))
+                    name_br.fs_offset = int(name_br.img_offset - self.start)
+                    name_br.file_offset = pos
+                    name_br.len = 64
+
+                    name_brs = Objects.ByteRuns()
+                    name_brs.facet = "name"
+                    name_brs.append(name_br)
 
             #if not (fnlen == '\xff' and flags == '\xff') and not fnlen == '\x00':
             if (ord(fnlen) < 43 and ord(fnlen) != 0) or (ord(fnlen) == 0xE5):
@@ -399,7 +426,7 @@ class Partition(object):
                                                adate=access_date, atime=access_time,\
                                                cdate=creation_date, ctime=creation_time,\
                                                pos_within_dir=pos//64,
-                                               allocated=allocated, xmlname=xmlname, parent=parent))
+                                               allocated=allocated, xmlname=xmlname, parent=parent, name_brs=name_brs))
             else:
                 pass
 
