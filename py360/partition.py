@@ -252,7 +252,7 @@ class Partition(object):
                 alloc = False
                 name = '~' + recorded_name
             elif ord(fnlen) > 42: # Technically >42 should be an error condition
-                _logger.warning("Encountered a directory entry with fnlen >42 (%r), at position %r.  Ceasing parsing this directory." % (fnlen, pos))
+                _logger.debug("Encountered a directory entry with fnlen >42 (%r), at position %r.  Ceasing parsing this directory." % (fnlen, pos))
                 break
             elif ord(fnlen) == 0: # A vacant entry, maybe the end of the directory?
                 pos += 64
@@ -279,7 +279,7 @@ class Partition(object):
                 #Populate FileObject here
                 import xboxtime
                 fobj = XTAFDFXML.XTAFFileObject()
-                #DFXML base fields
+                #DFXML base fields straight from directory entry parse
                 fobj.mtime = xboxtime.fatx2iso8601time(update_time, update_date)
                 fobj.atime = xboxtime.fatx2iso8601time(access_time, access_date)
                 fobj.crtime = xboxtime.fatx2iso8601time(creation_time, creation_date)
@@ -287,17 +287,18 @@ class Partition(object):
                 fobj.alloc_name = alloc
                 fobj.alloc_inode = alloc
                 fobj.volume_object = self.volume_object
+                #XTAF extension fields straight from directory entry parse
+                fobj.starting_cluster = cl
+                fobj.basename = recorded_name
+                fobj.flags = struct.unpack(">b", data[pos+1])[0]
+
+                #Fields that require some computation
+                fobj.name_type = "d" if (fobj.flags & 16) else "r"
                 #TODO
-                #fobj.name_type = an op on flags
+                #fobj.cluster_chain = 
                 #fobj.data_brs = 
                 #fobj.name_brs = 
                 fobj.meta_brs = fobj.name_brs
-                #XTAF extension fields
-                fobj.starting_cluster = cl
-                fobj.basename = recorded_name
-                fobj.flags = flags
-                #TODO
-                #fobj.cluster_chain = 
                 #Record
                 self.volume_object.append(fobj)
             else:

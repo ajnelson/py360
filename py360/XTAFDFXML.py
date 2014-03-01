@@ -51,15 +51,13 @@ class XTAFFileObject(Objects.FileObject):
 
     @property
     def flags(self):
-        """The flags as recorded in an on-disk directory entry.  Should be a byte string, though in Python 2 that seems equivalent to a string.."""
+        """The flags as parsed from an on-disk directory entry.  Should be an int."""
         return self._flags
 
     @flags.setter
     def flags(self, value):
         if not value is None:
-            Objects._typecheck(value, bytes)
-            if len(value) > 1:
-                _logger.error("Received a .flags value longer than 1 byte (%r bytes)." % len(value))
+            Objects._typecheck(value, int)
         self._flags = value
         
     @property
