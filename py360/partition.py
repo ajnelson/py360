@@ -12,6 +12,10 @@ import mmap
 import struct
 from threading import Lock
 from cStringIO import StringIO
+import Objects
+import logging
+import os
+_logger = logging.getLogger(os.path.basename(__file__))
 
 # TODO: Optional thread safety
 class XTAFFD(object):
@@ -103,6 +107,7 @@ class Partition(object):
         self.filename = filename
         self.threadsafe = threadsafe
         self.SIZE_OF_FAT_ENTRIES = 4
+        self.volume_object = Objects.VolumeObject()
 
         #TODO: Error checking
         fd = open(filename, 'r') # The 'r' is very imporant
@@ -238,15 +243,20 @@ class Partition(object):
         while pos + 64 < len(data): # FileRecord struct offsets
             fnlen = data[pos]
             flags = data[pos+1]
+            recorded_name = data[pos+2:pos+2+42].strip("\xff\x00")
+            alloc = None
             if ord(fnlen) == 0xE5: # Handle deleted files
-                name = '~' + data[pos+2:pos+2+42].strip("\xff\x00")
+                alloc = False
+                name = '~' + recorded_name
             elif ord(fnlen) > 42: # Technically >42 should be an error condition
+                _logger.warning("Encountered a directory entry with fnlen >42 (%r), at position %r.  Ceasing parsing this directory." % (fnlen, pos))
                 break
             elif ord(fnlen) == 0: # A vacant entry, maybe the end of the directory?
                 pos += 64
                 continue
             else: 
-                name = data[pos+2:pos+2+42].strip("\xff\x00") # Ignoring fnlen is a bit wasteful
+                alloc = True
+                name = recorded_name # Ignoring fnlen is a bit wasteful
             cl = struct.unpack(">I", data[pos+0x2c:pos+0x2c+4])[0]
             size = struct.unpack(">I", data[pos+0x30:pos+0x30+4])[0]
             creation_date = struct.unpack(">H", data[pos+0x34:pos+0x34+2])[0]
@@ -262,6 +272,23 @@ class Partition(object):
                                                fsize=size, mtime=update_time, mdate=update_date,\
                                                adate=access_date, atime=access_time,\
                                                cdate=creation_date, ctime=creation_time))
+
+                #Populate FileObject here
+                import xboxtime
+                fobj = Objects.FileObject()
+                #DFXML base fields
+                fobj.mtime = xboxtime.fatx2iso8601time(update_time, update_date)
+                fobj.atime = xboxtime.fatx2iso8601time(access_time, access_date)
+                fobj.crtime = xboxtime.fatx2iso8601time(creation_time, creation_date)
+                fobj.filesize = size
+                fobj.alloc_name = alloc
+                fobj.alloc_inode = alloc
+                fobj.volume_object = self.volume_object
+                #XTAF extension fields
+                fobj.starting_cluster = cl
+                fobj.basename = recorded_name
+                fobj.flags = flags
+                self.volume_object.append(fobj)
             else:
                 pass
 
