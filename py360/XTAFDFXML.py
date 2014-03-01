@@ -2,6 +2,7 @@
 import Objects
 import logging
 import os
+import xml.etree.ElementTree as ET
 
 _logger = logging.getLogger(os.path.basename(__file__))
 
@@ -24,6 +25,10 @@ class XTAFFileObject(Objects.FileObject):
 
     def to_Element(self):
         e = super(XTAFFileObject, self).to_Element()
+        if self.cluster_chain:
+            tmpel = ET.Element("xtaf:cluster_chain")
+            tmpel.text = ",".join(map(str, self.cluster_chain))
+            e.append(tmpel)
         return e
 
     @property
@@ -46,7 +51,11 @@ class XTAFFileObject(Objects.FileObject):
         if not value is None:
             Objects._typecheck(value, list)
             for cluster in value:
-                Objects._typecheck(value, int)
+                try:
+                    Objects._typecheck(cluster, int)
+                except:
+                    _logger.debug("value = %r." % value)
+                    raise
         self._cluster_chain = value
 
     @property

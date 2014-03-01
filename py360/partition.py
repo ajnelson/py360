@@ -271,10 +271,11 @@ class Partition(object):
 
             #if not (fnlen == '\xff' and flags == '\xff') and not fnlen == '\x00':
             if (ord(fnlen) < 43 and ord(fnlen) != 0) or (ord(fnlen) == 0xE5):
-                file_records.append(FileRecord(fnsize=fnlen, attribute=flags, filename=name, cluster=cl,\
-                                               fsize=size, mtime=update_time, mdate=update_date,\
-                                               adate=access_date, atime=access_time,\
-                                               cdate=creation_date, ctime=creation_time))
+                fr = FileRecord(fnsize=fnlen, attribute=flags, filename=name, cluster=cl,\
+                                fsize=size, mtime=update_time, mdate=update_date,\
+                                adate=access_date, atime=access_time,\
+                                cdate=creation_date, ctime=creation_time)
+                file_records.append(fr)
 
                 #Populate FileObject here
                 import xboxtime
@@ -295,10 +296,11 @@ class Partition(object):
                 #Fields that require some computation
                 fobj.name_type = "d" if (fobj.flags & 16) else "r"
                 #TODO
-                #fobj.cluster_chain = 
+                fobj.cluster_chain = self.get_clusters(fr)
                 #fobj.data_brs = 
                 #fobj.name_brs = 
                 fobj.meta_brs = fobj.name_brs
+                #fobj.inode = 
                 #Record
                 self.volume_object.append(fobj)
             else:
