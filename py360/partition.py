@@ -14,6 +14,7 @@ from threading import Lock
 from cStringIO import StringIO
 import Objects
 import XTAFDFXML
+import hashlib
 import logging
 import os
 _logger = logging.getLogger(os.path.basename(__file__))
@@ -146,10 +147,13 @@ class Partition(object):
         #self.rootfile = self.parse_directory()
         self.rootfile = self.init_root_directory(recurse = precache)
 
+    def cluster_to_disk_offset(self, cluster, partition_offset):
+        return (cluster - 1 << 14L) + self.root_dir + partition_offset
+
     def read_cluster(self, cluster, length=0x4000, offset=0L):
         """ Given a cluster number returns that cluster """
         if length + offset <= 0x4000: #Sanity check
-            diskoffset = (cluster - 1 << 14L) + self.root_dir + offset
+            diskoffset = self.cluster_to_disk_offset(cluster, offset)
             # Thread safety is optional because the extra function calls are a large burden
             if self.threadsafe:
                 self.lock.acquire() 
@@ -280,6 +284,7 @@ class Partition(object):
                 #Populate FileObject here
                 import xboxtime
                 fobj = XTAFDFXML.XTAFFileObject()
+
                 #DFXML base fields straight from directory entry parse
                 fobj.mtime = xboxtime.fatx2iso8601time(update_time, update_date)
                 fobj.atime = xboxtime.fatx2iso8601time(access_time, access_date)
@@ -288,16 +293,46 @@ class Partition(object):
                 fobj.alloc_name = alloc
                 fobj.alloc_inode = alloc
                 fobj.volume_object = self.volume_object
+
                 #XTAF extension fields straight from directory entry parse
                 fobj.starting_cluster = cl
                 fobj.basename = recorded_name
                 fobj.flags = struct.unpack(">b", data[pos+1])[0]
 
                 #Fields that require some computation
+
                 fobj.name_type = "d" if (fobj.flags & 16) else "r"
+
                 #TODO
+                md5obj = hashlib.md5()
+                sha1obj = hashlib.sha1()
                 fobj.cluster_chain = self.get_clusters(fr)
-                #fobj.data_brs = 
+                fobj.data_brs = Objects.ByteRuns()
+                aborted_cluster_walk = None
+                file_offset = 0
+                whole_cluster_length = 512*32 #TODO Work in last-cluster logic, this is wrong until the data are trimmed.
+                for cluster in fobj.cluster_chain:
+                    if cluster == 0:
+                        aborted_cluster_walk = True
+                        msg = "Cluster chain includes cluster 0.  Skipping this entire cluster chain; no hash will be recorded."
+                        fobj.error = msg
+                        _logger.warning(msg + "  (Recorded in XML.)")
+                        break
+                    cluster_data = self.read_cluster(cluster, whole_cluster_length)
+                    md5obj.update(cluster_data)
+                    sha1obj.update(cluster_data)
+                    br = Objects.ByteRun()
+                    br.len = 512*32
+                    fs_offset = int(self.cluster_to_disk_offset(cluster, fobj.volume_object.partition_offset or 0))
+                    #_logger.debug("fs_offset = %r." % fs_offset)
+                    br.fs_offset = fs_offset
+                    if not fobj.volume_object.partition_offset is None:
+                        br.img_offset = br.fs_offset + fobj.volume_object.partition_offset
+                    fobj.data_brs.glom(br)
+                    file_offset += whole_cluster_length
+                if not aborted_cluster_walk:
+                    fobj.md5 = md5obj.hexdigest()
+                    fobj.sha1 = sha1obj.hexdigest()
                 #fobj.name_brs = 
                 fobj.meta_brs = fobj.name_brs
                 #fobj.inode = 
