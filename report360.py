@@ -6,7 +6,7 @@ This version allows function reuse and swaps prints with a call to Report360.out
 """
 
 import time, os, sys
-from py360 import xdbf, partition, account, stfs, xboxmagic, xboxtime
+from py360 import xdbf, partition, account, stfs, xboxmagic, xboxtime, Objects
 from cStringIO import StringIO
 
 class Report360:
