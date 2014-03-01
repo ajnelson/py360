@@ -9,10 +9,15 @@ from py360 import XTAFDFXML
 _logger = logging.getLogger(os.path.basename(__file__))
 
 def main():
-    p = partition.Partition(args.infile)
     d = Objects.DFXMLObject()
     d.add_namespace("xtaf", XTAFDFXML.XMLNS_XTAF)
     d.add_namespace("py360", XTAFDFXML.XMLNS_PY360)
+
+    p = partition.Partition(args.infile)
+    #Note that the p.walk iterator has to run.
+    for filename in p.walk():
+        _logger.debug("Encountered in walk: %r." % filename)
+        pass
     d.volumes.append(p.volume_object)
 
     need_cleanup = None
