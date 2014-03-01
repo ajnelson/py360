@@ -10,7 +10,7 @@ def parse_fat_date(date):
     """
     day = (0x001f & date)
     month = (0x01e0 & date) >> 5
-    year = (0xfe00 & date) >> 9
+    year = ((0xfe00 & date) >> 9) + 1980
     return day, month, year # Return some relevant date format
 
 def parse_fat_time(time):
@@ -25,13 +25,18 @@ def parse_fat_time(time):
     return hours, minutes, seconds # Return some relevant time format
     
 def fat2unixtime(t, d):
-    """ Turns date/time members from a FileRecord into unix time """
+    """ Turns date/time members from a FileRecord (which are recorded in UTC) into local unix time """
     # Not currently accurate past 2 seconds
     # TODO: Millisecond accuracy
     # FAT times are generally UTC on disk
     a = parse_fat_time(t)
     b = parse_fat_date(d)
-    return time.mktime((1980 + b[2], b[1], b[0], a[0], a[1], a[2], 0, 0, 0))
+    return time.mktime((b[2], b[1], b[0], a[0], a[1], a[2], 0, 0, 0))
+
+def fatx2iso8601time(t, d):
+    a = parse_fat_time(t)
+    b = parse_fat_date(d)
+    return "%04d-%02d-%02dT%02d:%02d:%02dZ" % (b[2], b[1], b[0], a[0], a[1], a[2])
 
 def filetime2unixtime(filetime):
     """ Convert GPD times to unix time (Windows File Times, 100ms since 1601) """
