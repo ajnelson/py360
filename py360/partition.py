@@ -13,6 +13,7 @@ import struct
 from threading import Lock
 from cStringIO import StringIO
 import Objects
+import XTAFDFXML
 import logging
 import os
 _logger = logging.getLogger(os.path.basename(__file__))
@@ -113,8 +114,10 @@ class Partition(object):
         fd = open(filename, 'r') # The 'r' is very imporant
         if fd.read(4) != 'XTAF':
             start = 0x130EB0000L # TODO: Improve this detection mechanism
+            self.volume_object.partition_offset = start
         else:
             start = 0
+            #self.volume_object.partition_offset intentionally left null.
         fat = start + 0x1000L
         fd.seek(0, 2)
         end = fd.tell()
@@ -275,7 +278,7 @@ class Partition(object):
 
                 #Populate FileObject here
                 import xboxtime
-                fobj = Objects.FileObject()
+                fobj = XTAFDFXML.XTAFFileObject()
                 #DFXML base fields
                 fobj.mtime = xboxtime.fatx2iso8601time(update_time, update_date)
                 fobj.atime = xboxtime.fatx2iso8601time(access_time, access_date)
@@ -284,10 +287,18 @@ class Partition(object):
                 fobj.alloc_name = alloc
                 fobj.alloc_inode = alloc
                 fobj.volume_object = self.volume_object
+                #TODO
+                #fobj.name_type = an op on flags
+                #fobj.data_brs = 
+                #fobj.name_brs = 
+                fobj.meta_brs = fobj.name_brs
                 #XTAF extension fields
                 fobj.starting_cluster = cl
                 fobj.basename = recorded_name
                 fobj.flags = flags
+                #TODO
+                #fobj.cluster_chain = 
+                #Record
                 self.volume_object.append(fobj)
             else:
                 pass
