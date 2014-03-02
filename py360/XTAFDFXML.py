@@ -27,13 +27,17 @@ class XTAFFileObject(Objects.FileObject):
 
     def to_Element(self):
         e = super(XTAFFileObject, self).to_Element()
-        if self.cluster_chain:
-            tmpel = ET.Element("xtaf:cluster_chain")
-            tmpel.text = ",".join(map(str, self.cluster_chain))
-            e.append(tmpel)
         if not self.root is None:
             tmpel = ET.Element("xtaf:root")
             tmpel.text = str(1 if self.root else 0)
+            e.append(tmpel)
+        if not self.basename is None:
+            tmpel = ET.Element("xtaf:basename")
+            tmpel.text = self.basename
+            e.append(tmpel)
+        if not self.cluster_chain is None:
+            tmpel = ET.Element("xtaf:cluster_chain")
+            tmpel.text = ",".join(map(str, self.cluster_chain))
             e.append(tmpel)
         return e
 
