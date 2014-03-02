@@ -414,6 +414,25 @@ class Partition(object):
         directory.root = True
         directory.fullpath = '/'
         self.allfiles[directory.fullpath] = directory
+
+        #Create a DFXML object for the root directory (called before parse_directory so it appears first in the file object stream)
+        fobj = XTAFDFXML.XTAFFileObject()
+        fobj.root = True
+        fobj.name_type = "d"
+        fobj.volume_object = self.volume_object
+        fobj.alloc_inode = True
+        fobj.alloc_name = True
+        fobj.cluster_chain = [self.root_dir_cluster]
+        fobj.data_brs = Objects.ByteRuns()
+        br = Objects.ByteRun()
+        br.len = 32*512 #TODO Use whole-cluster length as recorded in Partition object.
+        br.file_offset = 0
+        br.fs_offset = int(self.cluster_to_disk_offset(self.root_dir_cluster, fobj.volume_object.partition_offset or 0))
+        if fobj.volume_object.partition_offset:
+            br.img_offset = br.fs_offset + fobj.volume_object.partition_offset
+        fobj.data_brs.glom(br)
+        self.volume_object.append(fobj)
+
         directory = self.parse_directory(directory, recurse = recurse)
         return directory 
 

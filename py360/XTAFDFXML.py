@@ -14,7 +14,9 @@ class XTAFFileObject(Objects.FileObject):
 
     _new_properties = {
       "basename",
+      "cluster_chain",
       "flags",
+      "root",
       "starting_cluster"
     }
 
@@ -28,6 +30,10 @@ class XTAFFileObject(Objects.FileObject):
         if self.cluster_chain:
             tmpel = ET.Element("xtaf:cluster_chain")
             tmpel.text = ",".join(map(str, self.cluster_chain))
+            e.append(tmpel)
+        if not self.root is None:
+            tmpel = ET.Element("xtaf:root")
+            tmpel.text = str(1 if self.root else 0)
             e.append(tmpel)
         return e
 
@@ -68,7 +74,16 @@ class XTAFFileObject(Objects.FileObject):
         if not value is None:
             Objects._typecheck(value, int)
         self._flags = value
-        
+
+    @property
+    def root(self):
+        """Boolean.  True for root directory, False or simply null for everything else."""
+        return self._root
+
+    @root.setter
+    def root(self, value):
+        self._root = Objects._boolcast(value)
+
     @property
     def starting_cluster(self):
        """Unit of measurement: Cluster."""
