@@ -15,6 +15,7 @@ from cStringIO import StringIO
 import Objects
 import XTAFDFXML
 import hashlib
+import copy
 import logging
 import os
 _logger = logging.getLogger(os.path.basename(__file__))
@@ -65,6 +66,7 @@ class FileRecord(object):
         self.cdate = kwargs["cdate"]
         self.atime = kwargs["atime"]
         self.adate = kwargs["adate"]
+        self.fileobject = None #Set in parse_file_records, but left null here as a placeholder.
 
     def isDirectory(self):
         if self.fsize == 0:
@@ -238,8 +240,9 @@ class Partition(object):
         else:
             return None
 
-    def parse_file_records(self, data):
+    def parse_file_records(self, data, parent_file_object=None):
         """
+            parent_file_object: Expected type is XTAFFileObject.
             While not end of file records
             Create a file record object
             Return list of file records
@@ -284,6 +287,8 @@ class Partition(object):
                 #Populate FileObject here
                 import xboxtime
                 fobj = XTAFDFXML.XTAFFileObject()
+                if parent_file_object:
+                    fobj.parent_object = parent_file_object
 
                 #DFXML base fields straight from directory entry parse
                 fobj.mtime = xboxtime.fatx2iso8601time(update_time, update_date)
@@ -323,6 +328,7 @@ class Partition(object):
                     sha1obj.update(cluster_data)
                     br = Objects.ByteRun()
                     br.len = 512*32
+                    br.file_offset = file_offset
                     fs_offset = int(self.cluster_to_disk_offset(cluster, fobj.volume_object.partition_offset or 0))
                     #_logger.debug("fs_offset = %r." % fs_offset)
                     br.fs_offset = fs_offset
@@ -333,11 +339,21 @@ class Partition(object):
                 if not aborted_cluster_walk:
                     fobj.md5 = md5obj.hexdigest()
                     fobj.sha1 = sha1obj.hexdigest()
-                #fobj.name_brs = 
-                fobj.meta_brs = fobj.name_brs
+                if fobj.parent_object:
+                    containing_byte_run = None
+                    for br in fobj.parent_object.data_brs:
+                        if br.file_offset + br.len > pos:
+                            containing_byte_run = br
+                            break
+                    fobj.name_brs = Objects.ByteRuns()
+                    fobj.name_brs.facet = "name"
+                    fobj.name_brs.append(br)
+                    fobj.meta_brs = copy.deepcopy(fobj.name_brs)
+                    fobj.meta_brs.facet = "meta"
                 #fobj.inode = 
                 #Record
                 self.volume_object.append(fobj)
+                fr.fileobject = fobj
             else:
                 pass
 
@@ -455,7 +471,11 @@ class Partition(object):
                 directory_data = self.read_file(fileobj = d)
 
             # Parse the file records returned and optionally requeue subdirectories
-            file_records = self.parse_file_records(directory_data)
+            parent_to_pass = None
+            if d.fr and d.fr.fileobject:
+                parent_to_pass = d.fr.fileobject
+                _logger.debug("Passing a parent object reference.")
+            file_records = self.parse_file_records(directory_data, parent_to_pass)
             for fr in file_records:
                 if fr.isDirectory():
                     d.files[fr.filename] = Directory(fr, [])
