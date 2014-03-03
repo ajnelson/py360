@@ -132,7 +132,7 @@ class Partition(object):
         #fatfd = mmap.mmap(fd.fileno(), fatsize, mmap.PROT_READ, mmap.PROT_READ, offset=fat)
         # So we have to keep the whole FAT in memory during processing
         fd.seek(fat, 0)
-        fatdata = fd.read(fatsize * 4)
+        fatdata = fd.read(fatsize * self.SIZE_OF_FAT_ENTRIES)
         fd.seek(0, 0)
 
         # Setup internal variables
@@ -148,6 +148,20 @@ class Partition(object):
         self.lock = Lock()
         #self.rootfile = self.parse_directory()
         self.rootfile = self.init_root_directory(recurse = precache)
+
+        #Create a virtual file for the FAT
+        fatfileobject = XTAFDFXML.XTAFFileObject()
+        fatfileobject.filename = "$FAT1"
+        fatfileobject.filesize = int(fatsize * self.SIZE_OF_FAT_ENTRIES)
+        fatfileobject.name_type = "v"
+        fatfileobject.data_brs = Objects.ByteRuns()
+        fbr = Objects.ByteRun()
+        fbr.len = fatfileobject.filesize
+        fbr.fs_offset = int(fat - start)
+        if not self.volume_object.partition_offset is None:
+            fbr.img_offset = int(fbr.fs_offset + self.volume_object.partition_offset)
+        fatfileobject.data_brs.append(fbr)
+        self.volume_object.append(fatfileobject)
 
     def cluster_to_disk_offset(self, cluster, partition_offset):
         return (cluster - 1 << 14L) + self.root_dir + partition_offset
