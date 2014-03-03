@@ -111,7 +111,7 @@ class Partition(object):
         self.filename = filename
         self.threadsafe = threadsafe
         self.SIZE_OF_FAT_ENTRIES = 4
-        self.volume_object = Objects.VolumeObject()
+        self.volume_object = XTAFDFXML.XTAFVolumeObject()
 
         #TODO: Error checking
         fd = open(filename, 'r') # The 'r' is very imporant
@@ -121,6 +121,21 @@ class Partition(object):
         else:
             start = 0
             #self.volume_object.partition_offset intentionally left null.
+
+        #Parse superblock
+        fd.seek(start, 0)
+        if fd.read(4) != "XTAF":
+            raise ValueError("Partition not found at offset %r." % start)
+        raw_vol_id = fd.read(4)
+        raw_sectors_per_cluster = fd.read(4)
+        raw_num_fats = fd.read(4)
+        self.volume_object.volume_id = struct.unpack(">I", raw_vol_id)[0]
+        self.sectors_per_cluster = struct.unpack(">I", raw_sectors_per_cluster)[0]
+        num_fats = struct.unpack(">I", raw_num_fats)[0]
+        if num_fats > 1:
+            _logger.error("Encountered an XTAF partition with more than one FAT (%r).  Have not encountered this before.  Expect strange results!" % num_fats)
+
+        #Determine FAT dimensions and rootdir location
         fat = start + 0x1000L
         fd.seek(0, 2)
         end = fd.tell()
@@ -168,6 +183,7 @@ class Partition(object):
 
     def read_cluster(self, cluster, length=0x4000, offset=0L):
         """ Given a cluster number returns that cluster """
+        error_msg = None
         if length + offset <= 0x4000: #Sanity check
             diskoffset = self.cluster_to_disk_offset(cluster, offset)
             # Thread safety is optional because the extra function calls are a large burden
@@ -177,11 +193,15 @@ class Partition(object):
             try:
                 self.fd.seek(diskoffset)
                 buf = self.fd.read(length)
-            except IOError:
+            except IOError as e:
                 buf = ""
+                error_msg = "I/O error (%d): %s" % (e.errno, e.strerror)
 
             if self.threadsafe:
                 self.lock.release()
+
+            if not error_msg is None:
+                _logger.error(error_msg)
             return buf
         else:
             return ""
@@ -195,7 +215,7 @@ class Partition(object):
 
         if size == -1:
             if fileobj.isDirectory():
-                size = 2**32 # Read the whole directory (all the clusters)
+                size = 512 * self.sectors_per_cluster # Read the whole directory (all the clusters)
             else:
                 size = fileobj.fr.fsize # Read the whole file (skip the slack space)
 
@@ -322,7 +342,6 @@ class Partition(object):
 
                 fobj.name_type = "d" if (fobj.flags & 16) else "r"
 
-                #TODO
                 md5obj = hashlib.md5()
                 sha1obj = hashlib.sha1()
                 fobj.cluster_chain = self.get_clusters(fr)
@@ -330,7 +349,18 @@ class Partition(object):
                 fobj.data_brs.facet = "data"
                 aborted_cluster_walk = None
                 file_offset = 0
-                whole_cluster_length = 512*32 #TODO Work in last-cluster logic, this is wrong until the data are trimmed.
+
+                #Determine number of bytes that should be read and called file data
+                #For regular files, this is simply what's recorded in the directory entry.
+                #For directories, we'll call it the size of a cluster * the length of the cluster chain.
+                whole_cluster_length = 512 * self.sectors_per_cluster
+                bytes_to_read = None
+                if fobj.name_type == "r":
+                    bytes_to_read = fobj.filesize
+                elif fobj.name_type == "d":
+                    bytes_to_read = whole_cluster_length * len(fobj.cluster_chain)
+                else:
+                    raise ValueError("No rule available for defining file length in bytes based on name type %r." % fobj.name_type)
                 for cluster in fobj.cluster_chain:
                     if cluster == 0:
                         aborted_cluster_walk = True
@@ -338,11 +368,16 @@ class Partition(object):
                         fobj.error = msg
                         _logger.warning(msg + "  (Recorded in XML.)")
                         break
-                    cluster_data = self.read_cluster(cluster, whole_cluster_length)
+
+                    bytes_to_read_from_cluster = min(whole_cluster_length, bytes_to_read)
+                    bytes_to_read -= bytes_to_read_from_cluster
+
+                    #Note that read_cluster was designed to return empty strings on I/O errors.
+                    cluster_data = self.read_cluster(cluster, whole_cluster_length)[:bytes_to_read_from_cluster]
                     md5obj.update(cluster_data)
                     sha1obj.update(cluster_data)
                     br = Objects.ByteRun()
-                    br.len = 512*32
+                    br.len = bytes_to_read_from_cluster
                     br.file_offset = file_offset
                     fs_offset = int(self.cluster_to_disk_offset(cluster, fobj.volume_object.partition_offset or 0))
                     #_logger.debug("fs_offset = %r." % fs_offset)
@@ -350,10 +385,14 @@ class Partition(object):
                     if not fobj.volume_object.partition_offset is None:
                         br.img_offset = br.fs_offset + fobj.volume_object.partition_offset
                     fobj.data_brs.glom(br)
-                    file_offset += whole_cluster_length
+                    file_offset += bytes_to_read_from_cluster
                 if not aborted_cluster_walk:
                     fobj.md5 = md5obj.hexdigest()
                     fobj.sha1 = sha1obj.hexdigest()
+                    if bytes_to_read > 0:
+                        msg = "After walking the cluster chain, there are %d bytes remaining to read.  The hashes are likely incorrect." % bytes_to_read
+                        fobj.error = msg
+                        _logger.warning(msg + "  (Recorded in XML.)")
 
                 #Compute full path
                 full_path_parts = [fobj.basename]
@@ -477,7 +516,7 @@ class Partition(object):
         fobj.cluster_chain = [self.root_dir_cluster]
         fobj.data_brs = Objects.ByteRuns()
         br = Objects.ByteRun()
-        br.len = 32*512 #TODO Use whole-cluster length as recorded in Partition object.
+        br.len = 512 * self.sectors_per_cluster
         br.file_offset = 0
         br.fs_offset = int(self.cluster_to_disk_offset(self.root_dir_cluster, fobj.volume_object.partition_offset or 0))
         if fobj.volume_object.partition_offset:

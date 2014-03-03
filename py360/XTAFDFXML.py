@@ -9,6 +9,36 @@ _logger = logging.getLogger(os.path.basename(__file__))
 XMLNS_XTAF = "http://www.forensicsiwki.org/wiki/XTAF"
 XMLNS_PY360 = "http://forensicsiwki.org/wiki/Py360"
 
+class XTAFVolumeObject(Objects.VolumeObject):
+    """A class to keep the documentation straight on XTAF extensions to DFXML VolumeObjects."""
+
+    _new_properties = {
+      "volume_id"
+    }
+
+    def __init__(self, *args, **kwargs):
+        super(XTAFVolumeObject,self).__init__(*args, **kwargs)
+        for prop in self._new_properties:
+            setattr(self, prop, kwargs.get(prop))
+
+    def to_partial_Element(self):
+        e = super(XTAFVolumeObject, self).to_partial_Element()
+        if not self.volume_id is None:
+            tmpel = ET.Element("xtaf:volume_id")
+            tmpel.text = str(self.volume_id)
+            e.append(tmpel)
+        return e
+
+    @property
+    def volume_id(self):
+        return self._volume_id
+
+    @volume_id.setter
+    def volume_id(self, value):
+        if not value is None:
+            Objects._typecheck(value, int)
+        self._volume_id = value
+
 class XTAFFileObject(Objects.FileObject):
     """A class to keep the documentation straight on XTAF extensions to DFXML FileObjects."""
 
