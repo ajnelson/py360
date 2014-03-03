@@ -110,7 +110,6 @@ class Partition(object):
     def __init__(self, filename, threadsafe=False, precache=False):
         self.filename = filename
         self.threadsafe = threadsafe
-        self.SIZE_OF_FAT_ENTRIES = 4
         self.volume_object = XTAFDFXML.XTAFVolumeObject()
 
         #TODO: Error checking
@@ -138,10 +137,64 @@ class Partition(object):
         #Determine FAT dimensions and rootdir location
         fat = start + 0x1000L
         fd.seek(0, 2)
-        end = fd.tell()
-        rootdir = -(-((end - start) >> 12L) & -0x1000L) + fat #TODO: Understand this better
-        size = end - rootdir
+        input_end = fd.tell()
+        rootdir = -(-((input_end - start) >> 12L) & -0x1000L) + fat #TODO: Understand this better
+        size = input_end - rootdir
         fatsize = size >> 14L
+
+        #Determine start length of partition
+        partition_img_start = None #Note: This is the offset in bytes within a SUPPOSED whole-disk image.  That image is not necessarily the input file this program is directly working on.
+        partition_length = None
+        if start == 0:
+            part_sizes_to_offsets = {
+              512 * 262144: 0x118EB0000L,
+              512 * 422272: 0x10C080000L,
+              512 * 524288: 0x120EB0000L,
+              512 * 4194304: 0x80000L,
+              512 * 4587520: 0x80080000L
+            }
+            if input_end in part_sizes_to_offsets:
+                partition_length = input_end
+                partition_img_start = part_sizes_to_offsets[input_end]
+            elif input_end > sum(part_sizes_to_offsets.keys()):
+                partition_length = input_end
+                partition_img_start = 0x130EB0000L
+            else:
+                _logger.error("Encountered partition of unexpected size: %d bytes." % partition_length)
+        else:
+            partition_length = input_end
+            partition_img_start = start
+        if partition_length is None:
+            raise ValueError("Could not determine partition length.")
+        if partition_img_start is None:
+            raise ValueError("Could not determine offset of partition within an XBox 360 disk image.")
+
+        #Determine some The SleuthKit-like values by (supposed) partition start; needed for computing TSK-style "inode".
+        #Key: Offset in bytes from start of a whole-disk image
+        #Value: Offsets in sectors from start of partition: (rootsect, firstclustsect) (copied from notes that were written in sectors)
+        part_offsets_to_hardcoded_locations = {
+          0x80000L:     (528,  592),
+          0x80080000L:  (2248, 2264),
+          0x10C080000L: (64,   96),
+          0x118EB0000L: (48,   80),
+          0x120EB0000L: (80,   112)
+        }
+        if partition_img_start in part_offsets_to_hardcoded_locations:
+            (rootsect, firstclustsect) = part_offsets_to_hardcoded_locations[partition_img_start]
+            self.volume_object.firstclustsect = firstclustsect
+            rootdir = rootsect * 512 + start
+        else:
+            self.volume_object.firstdatasect = None #TODO
+
+        #Determine XTAF variant by determining partition dimensions
+        if partition_length / (512*self.sectors_per_cluster) > 0xfff4:
+            self.volume_object.ftype_str = "XTAF32"
+            self.SIZE_OF_FAT_ENTRIES = 4
+            self.fat_mask = 0x0fffffff
+        else:
+            self.volume_object.ftype_str = "XTAF16"
+            self.SIZE_OF_FAT_ENTRIES = 2
+            self.fat_mask = 0x0000ffff
 
         # This doesn't work because unlike the C version of mmap you can't give it a 64 bit offset
         #fatfd = mmap.mmap(fd.fileno(), fatsize, mmap.PROT_READ, mmap.PROT_READ, offset=fat)
@@ -248,22 +301,36 @@ class Partition(object):
         if fr.cluster == 0:
             print "Empty file"
             return []
+        #Define some special FAT entry values
+        XTAF_FATE_BAD  = 0x0ffffff7
+        XTAF_FATE_EOFS = 0x0ffffff8
+        XTAF_FATE_EOFE = 0x0fffffff
+        masked_bad = self.fat_mask & XTAF_FATE_BAD
+        masked_eofs = self.fat_mask & XTAF_FATE_EOFS
+        masked_eofe = self.fat_mask & XTAF_FATE_EOFE
+        
         clusters = [fr.cluster]
-        cl = 0x0
         cl = fr.cluster
         cldata = ''
-        while cl & 0xFFFFFFF != 0xFFFFFFF:
+        if self.SIZE_OF_FAT_ENTRIES == 4:
+            unpack_fmt = ">I"
+        else:
+            unpack_fmt = ">H"
+        while cl & self.fat_mask not in [masked_bad, masked_eofs, masked_eofe]:
             cl_off = cl * self.SIZE_OF_FAT_ENTRIES 
             cldata = self.fat_data[cl_off:cl_off + self.SIZE_OF_FAT_ENTRIES]
-            if len(cldata) == 4:
-                cl = struct.unpack(">I", cldata)[0] 
-                if cl & 0xFFFFFFF != 0xFFFFFFF:
+            if len(cldata) == self.SIZE_OF_FAT_ENTRIES:
+                cl = struct.unpack(unpack_fmt, cldata)[0] 
+                if cl & self.fat_mask not in [masked_bad, masked_eofs, masked_eofe]:
                     clusters.append(cl)
             else:
                 if fr.filename[0] != '~':
-                    print "get_clusters fat offset warning %s %x vs %x, %x" %\
-                          (fr.filename, cl_off, len(self.fat_data), len(cldata))
-                cl = 0xFFFFFFF
+                    _logger.warning("get_clusters cldata is not the size of FAT entries (should be %d)." % self.SIZE_OF_FAT_ENTRIES)
+                    _logger.warning("  fr.filename: %r." % fr.filename)
+                    _logger.warning("  cl_off: %x." % cl_off)
+                    _logger.warning("  len(self.fat_data): %x." % len(self.fat_data))
+                    _logger.warning("  len(cldata): %x." % len(cldata))
+                cl = XTAF_FATE_EOFE
         return clusters
 
     def open_fd(self, filename):
@@ -509,6 +576,7 @@ class Partition(object):
         #Create a DFXML object for the root directory (called before parse_directory so it appears first in the file object stream)
         fobj = XTAFDFXML.XTAFFileObject()
         fobj.root = True
+        fobj.inode = 2
         fobj.name_type = "d"
         fobj.volume_object = self.volume_object
         fobj.alloc_inode = True
@@ -552,7 +620,7 @@ class Partition(object):
             parent_to_pass = None
             if d.fr and d.fr.fileobject:
                 parent_to_pass = d.fr.fileobject
-                _logger.debug("Passing a parent object reference.")
+                #_logger.debug("Passing a parent object reference.")
             file_records = self.parse_file_records(directory_data, parent_to_pass)
             for fr in file_records:
                 if fr.isDirectory():
