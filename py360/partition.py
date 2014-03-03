@@ -55,17 +55,17 @@ class FileRecord(object):
         return "XTAF FileRecord: %s" % self.filename
 
     def __init__(self, **kwargs):
-        self.fnsize = kwargs["fnsize"]
-        self.attribute = kwargs["attribute"]
-        self.filename = kwargs["filename"]
-        self.cluster = kwargs["cluster"]
-        self.fsize = kwargs["fsize"]
-        self.mtime = kwargs["mtime"]
-        self.mdate = kwargs["mdate"]
-        self.ctime = kwargs["ctime"]
-        self.cdate = kwargs["cdate"]
-        self.atime = kwargs["atime"]
-        self.adate = kwargs["adate"]
+        self.fnsize = kwargs.get("fnsize")
+        self.attribute = kwargs.get("attribute")
+        self.filename = kwargs.get("filename")
+        self.cluster = kwargs.get("cluster")
+        self.fsize = kwargs.get("fsize")
+        self.mtime = kwargs.get("mtime")
+        self.mdate = kwargs.get("mdate")
+        self.ctime = kwargs.get("ctime")
+        self.cdate = kwargs.get("cdate")
+        self.atime = kwargs.get("atime")
+        self.adate = kwargs.get("adate")
         self.fileobject = None #Set in parse_file_records, but left null here as a placeholder.
 
     def isDirectory(self):
@@ -313,6 +313,7 @@ class Partition(object):
                 sha1obj = hashlib.sha1()
                 fobj.cluster_chain = self.get_clusters(fr)
                 fobj.data_brs = Objects.ByteRuns()
+                fobj.data_brs.facet = "data"
                 aborted_cluster_walk = None
                 file_offset = 0
                 whole_cluster_length = 512*32 #TODO Work in last-cluster logic, this is wrong until the data are trimmed.
@@ -339,18 +340,39 @@ class Partition(object):
                 if not aborted_cluster_walk:
                     fobj.md5 = md5obj.hexdigest()
                     fobj.sha1 = sha1obj.hexdigest()
+
+                #Compute full path
+                full_path_parts = [fobj.basename]
+                if fobj.parent_object:
+                    parent_pointer = fobj.parent_object
+                    while not parent_pointer is None:
+                        if parent_pointer.basename is None:
+                            break
+                        full_path_parts.insert(0, parent_pointer.basename or "")
+                        parent_pointer = parent_pointer.parent_object
+                fobj.filename = "/".join(full_path_parts)
+
+                #Define name and metadata byte runs
                 if fobj.parent_object:
                     containing_byte_run = None
                     for br in fobj.parent_object.data_brs:
                         if br.file_offset + br.len > pos:
                             containing_byte_run = br
                             break
+                    name_br = Objects.ByteRun()
+                    name_br.len = 64
+                    name_br.fs_offset = containing_byte_run.fs_offset + pos - containing_byte_run.file_offset
+                    if not fobj.volume_object.partition_offset is None:
+                        name_br.img_offset = name_br.fs_offset + fobj.volume_object.partition_offset
                     fobj.name_brs = Objects.ByteRuns()
                     fobj.name_brs.facet = "name"
-                    fobj.name_brs.append(br)
+                    fobj.name_brs.append(name_br)
+                    #In XTAF, name and metadata byte runs are the same.
                     fobj.meta_brs = copy.deepcopy(fobj.name_brs)
                     fobj.meta_brs.facet = "meta"
+                #TODO
                 #fobj.inode = 
+
                 #Record
                 self.volume_object.append(fobj)
                 fr.fileobject = fobj
@@ -447,8 +469,11 @@ class Partition(object):
         if fobj.volume_object.partition_offset:
             br.img_offset = br.fs_offset + fobj.volume_object.partition_offset
         fobj.data_brs.glom(br)
+        fobj.data_brs.facet = "data"
         self.volume_object.append(fobj)
 
+        directory.fr = FileRecord() #A mostly-null object, since the root has no directory entry.
+        directory.fr.fileobject = fobj
         directory = self.parse_directory(directory, recurse = recurse)
         return directory 
 
