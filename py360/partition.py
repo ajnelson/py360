@@ -488,8 +488,8 @@ class Partition(object):
                     fobj.name_brs.facet = "name"
                     fobj.name_brs.append(name_br)
                     #In XTAF, name and metadata byte runs are the same.
-                    fobj.meta_brs = copy.deepcopy(fobj.name_brs)
-                    fobj.meta_brs.facet = "meta"
+                    fobj.inode_brs = copy.deepcopy(fobj.name_brs)
+                    fobj.inode_brs.facet = "inode"
                 #TODO
                 #fobj.inode = 
 
