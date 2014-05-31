@@ -316,12 +316,15 @@ class Partition(object):
             unpack_fmt = ">I"
         else:
             unpack_fmt = ">H"
-        while cl & self.fat_mask not in [masked_bad, masked_eofs, masked_eofe]:
+        def _is_bad_or_eof(some_cl):
+            masked_cl = some_cl & self.fat_mask
+            return masked_cl == masked_bad or (masked_cl >= masked_eofs and masked_cl <= masked_eofe)
+        while not _is_bad_or_eof(cl):
             cl_off = cl * self.SIZE_OF_FAT_ENTRIES 
             cldata = self.fat_data[cl_off:cl_off + self.SIZE_OF_FAT_ENTRIES]
             if len(cldata) == self.SIZE_OF_FAT_ENTRIES:
                 cl = struct.unpack(unpack_fmt, cldata)[0] 
-                if cl & self.fat_mask not in [masked_bad, masked_eofs, masked_eofe]:
+                if not _is_bad_or_eof(cl):
                     clusters.append(cl)
             else:
                 if fr.filename[0] != '~':
