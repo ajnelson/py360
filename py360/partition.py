@@ -344,7 +344,7 @@ class Partition(object):
         else:
             return None
 
-    def parse_file_records(self, data, parent_file_object=None):
+    def parse_file_records(self, data, parent_file_object=None, data_clusters=None):
         """
             parent_file_object: Expected type is XTAFFileObject.
             While not end of file records
@@ -493,8 +493,23 @@ class Partition(object):
                     #In XTAF, name and metadata byte runs are the same.
                     fobj.inode_brs = copy.deepcopy(fobj.name_brs)
                     fobj.inode_brs.facet = "inode"
-                #TODO
-                #fobj.inode = 
+
+                #Populate the inode field (using the recorded data_clusters instead of re-determining data cluster definitions)
+                if data_clusters is None:
+                    _logger.warning("parse_file_records called with no clusters attached to the Directory object.")
+                else:
+                    #(Adapted from uxtaf adaptation of TSK macro.)
+                    XTAFFS_FIRST_NORMINO = 3
+                    bytes_per_dentry = 64
+                    dentries_per_sector = 8
+                    spc = self.sectors_per_cluster
+                    entry = pos // bytes_per_dentry
+                    #Determine in which cluster from the function's passed list we are
+                    data_cluster = data_clusters[pos // (bytes_per_dentry * dentries_per_sector * spc)]
+                    #Determine in which sector we are
+                    sect = (data_cluster-1) * spc + (entry // dentries_per_sector);
+                    
+                    fobj.inode = XTAFFS_FIRST_NORMINO + dentries_per_sector * sect + (entry % dentries_per_sector)
 
                 #Record
                 self.volume_object.append(fobj)
@@ -604,7 +619,8 @@ class Partition(object):
     #TODO: Refactor this to something smaller
     def parse_directory(self, directory = None, recurse = False):
         """ Parses a single directory, optionally it can recurse into subdirectories.
-            It populates the allfile dict and parses the directories and file records of the directory """
+            It populates the allfile dict and parses the directories and file records of the directory.
+            Type of directory:  Should be a Directory."""
         dirs_to_process = []
         if directory == None:
             return None
@@ -624,7 +640,9 @@ class Partition(object):
             if d.fr and d.fr.fileobject:
                 parent_to_pass = d.fr.fileobject
                 #_logger.debug("Passing a parent object reference.")
-            file_records = self.parse_file_records(directory_data, parent_to_pass)
+
+            #Pass clusters as context as well; saves on translation effort later.
+            file_records = self.parse_file_records(directory_data, parent_to_pass, d.clusters)
             for fr in file_records:
                 if fr.isDirectory():
                     d.files[fr.filename] = Directory(fr, [])
